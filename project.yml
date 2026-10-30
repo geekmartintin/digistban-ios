@@ -1,0 +1,35 @@
+# XcodeGen spec: `xcodegen generate` writes Digistban.xcodeproj (done by CI, see .github/workflows/build.yml).
+name: Digistban
+options:
+  bundleIdPrefix: com.digistban
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+  developmentLanguage: fr
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  Digistban:
+    type: application
+    platform: iOS
+    sources:
+      - path: Digistban
+        excludes:
+          - Info.plist
+    settings:
+      base:
+        PRODUCT_NAME: Digistban
+        PRODUCT_BUNDLE_IDENTIFIER: com.digistban.app
+        INFOPLIST_FILE: Digistban/Info.plist
+        GENERATE_INFOPLIST_FILE: "NO"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: "NO"
+        ENABLE_USER_SCRIPT_SANDBOXING: "NO"
+        # Unsigned build: Sideloadly (or AltStore) signs it with your Apple ID when installing.
+        CODE_SIGNING_ALLOWED: "NO"
+        CODE_SIGNING_REQUIRED: "NO"
+        CODE_SIGN_IDENTITY: ""

@@ -1,0 +1,5 @@
+"offline.title" = "No connection";
+"offline.message" = "Digistban needs the internet to open. The app tries again as soon as the network is back.";
+"offline.retry" = "Try again";
+"download.failed" = "Download failed";
+"common.cancel" = "Cancel";

@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "Digistban utilise l’appareil photo pour les appels vidéo et pour envoyer des photos.";
+"NSMicrophoneUsageDescription" = "Digistban utilise le micro pour les appels et les messages vocaux.";
+"NSPhotoLibraryUsageDescription" = "Digistban accède à vos photos quand vous choisissez d’en envoyer.";
+"NSPhotoLibraryAddUsageDescription" = "Digistban enregistre dans Photos les images et vidéos que vous téléchargez.";

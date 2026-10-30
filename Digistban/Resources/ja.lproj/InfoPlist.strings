@@ -1,0 +1,4 @@
+"NSCameraUsageDescription" = "Digistban はビデオ通話と写真の送信にカメラを使用します。";
+"NSMicrophoneUsageDescription" = "Digistban は通話とボイスメッセージにマイクを使用します。";
+"NSPhotoLibraryUsageDescription" = "写真を送信するときに Digistban が写真にアクセスします。";
+"NSPhotoLibraryAddUsageDescription" = "ダウンロードした画像やビデオを Digistban が写真に保存します。";

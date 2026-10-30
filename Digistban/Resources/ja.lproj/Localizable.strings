@@ -1,0 +1,5 @@
+"offline.title" = "接続がありません";
+"offline.message" = "Digistban を開くにはインターネット接続が必要です。ネットワークが戻るとすぐに再試行します。";
+"offline.retry" = "再試行";
+"download.failed" = "ダウンロードできませんでした";
+"common.cancel" = "キャンセル";
