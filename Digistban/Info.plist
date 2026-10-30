@@ -39,6 +39,61 @@
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Fichier</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.data</string>
+				<string>public.content</string>
+			</array>
+		</dict>
+	</array>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<false/>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.digistban.app.send</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>shortcut.send</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>paperplane</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.digistban.app.transfers</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>shortcut.transfers</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>archivebox</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.digistban.app.messages</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>shortcut.messages</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>bubble.left</string>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.digistban.app.scan</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>shortcut.scan</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>qrcode.viewfinder</string>
+		</dict>
+	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

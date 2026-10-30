@@ -1,0 +1,9 @@
+"share.title" = "Send with Digistban";
+"share.preparing" = "Preparing the files…";
+"share.open" = "Open in Digistban";
+"share.cancel" = "Cancel";
+"share.ready" = "%ld item(s) ready · %@";
+"share.nothing" = "Nothing to send: these items are not files.";
+"share.unavailable" = "Direct sharing is not available with this installation. In Digistban, tap “Add files”.";
+"share.reminderTitle" = "Your files are ready";
+"share.reminderBody" = "Tap to send them with Digistban.";

@@ -4,3 +4,14 @@
 "download.failed" = "Téléchargement impossible";
 "common.cancel" = "Annuler";
 "call.decline" = "Refuser";
+"pick.photos" = "Photos et vidéos";
+"pick.files" = "Fichiers";
+"pick.scan" = "Scanner un document";
+"pick.scanName" = "Scan";
+"scan.hint" = "Visez le QR code d’un lien Digistban";
+"scan.close" = "Fermer";
+"scan.denied" = "Autorisez l’appareil photo pour scanner un QR code.";
+"scan.settings" = "Ouvrir les réglages";
+"scan.notDigistban" = "Ce QR code n’est pas un lien Digistban";
+"scan.open" = "Ouvrir";
+"scan.copy" = "Copier le texte";

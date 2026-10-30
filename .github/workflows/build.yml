@@ -48,6 +48,14 @@ jobs:
         run: |
           mkdir Payload
           cp -R build/Build/Products/Release-iphoneos/Digistban.app Payload/
+          APP=Payload/Digistban.app
+          ls "$APP/PlugIns"
+          # Ad hoc signature carrying the entitlements (App Group shared with the share
+          # extension): Sideloadly reads them when it signs with your Apple ID.
+          codesign --force --sign - --timestamp=none --entitlements DigistbanShare/DigistbanShare.entitlements "$APP/PlugIns/DigistbanShare.appex"
+          codesign --force --sign - --timestamp=none "$APP/PlugIns/DigistbanWidgets.appex"
+          codesign --force --sign - --timestamp=none --entitlements Digistban/Digistban.entitlements "$APP"
+          codesign -d --entitlements - "$APP" 2>/dev/null | grep -A2 application-groups || true
           zip -qry Digistban.ipa Payload
           ls -lh Digistban.ipa
 

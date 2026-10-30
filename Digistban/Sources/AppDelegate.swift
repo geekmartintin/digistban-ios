@@ -14,6 +14,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         ])
         BackgroundCheck.register()
         Downloads.cleanUp()
+        Uploader.shared.restore()
         return true
     }
 
@@ -36,6 +37,14 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         if let url = connectionOptions.urlContexts.first?.url {
             controller.open(deepLink: url)
         }
+        if let shortcut = connectionOptions.shortcutItem {
+            controller.perform(shortcut: shortcut.type)
+        }
+    }
+
+    func windowScene(_ windowScene: UIWindowScene, performActionFor shortcutItem: UIApplicationShortcutItem, completionHandler: @escaping (Bool) -> Void) {
+        WebViewController.shared.perform(shortcut: shortcutItem.type)
+        completionHandler(true)
     }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
@@ -55,13 +64,15 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func sceneWillResignActive(_ scene: UIScene) {
         // Started while the app is still in front: iOS may refuse to start audio from the background.
-        // Not during a call: the page's audio session must stay as it is.
-        guard BackgroundCheck.signedIn, KeepAlive.enabled, !Bridge.inCall else { return }
+        // Not during a call: the page's audio session must stay as it is. A transfer being
+        // sent keeps the app running too, even if "stay reachable" is off.
+        guard BackgroundCheck.signedIn, KeepAlive.enabled || Uploader.shared.isBusy, !Bridge.inCall else { return }
         KeepAlive.shared.start()
     }
 
     func sceneDidBecomeActive(_ scene: UIScene) {
         KeepAlive.shared.stop()
+        WebViewController.shared.collectSharedFiles()
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {

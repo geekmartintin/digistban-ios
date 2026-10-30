@@ -23,6 +23,7 @@ enum BackgroundCheck {
 
     static var signedIn: Bool { UserDefaults.standard.bool(forKey: Keys.signedIn) }
     static var userId: String? { UserDefaults.standard.string(forKey: Keys.userId) }
+    static var language: String? { UserDefaults.standard.string(forKey: Keys.language) }
     /// Texts of notifications, in the account's language (sent by the web app).
     static var strings: [String: String] { UserDefaults.standard.dictionary(forKey: Keys.strings) as? [String: String] ?? [:] }
 

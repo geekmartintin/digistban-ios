@@ -9,8 +9,15 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "1.4.0"
+    MARKETING_VERSION: "1.5.0"
     CURRENT_PROJECT_VERSION: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: "NO"
+    TARGETED_DEVICE_FAMILY: "1,2"
+    # Unsigned build: CI signs it ad hoc with the entitlements, then Sideloadly
+    # (or AltStore) signs it with your Apple ID when installing.
+    CODE_SIGNING_ALLOWED: "NO"
+    CODE_SIGNING_REQUIRED: "NO"
+    CODE_SIGN_IDENTITY: ""
 targets:
   Digistban:
     type: application
@@ -19,6 +26,11 @@ targets:
       - path: Digistban
         excludes:
           - Info.plist
+          - Digistban.entitlements
+      - path: Shared
+    dependencies:
+      - target: DigistbanWidgets
+      - target: DigistbanShare
     settings:
       base:
         PRODUCT_NAME: Digistban
@@ -26,10 +38,42 @@ targets:
         INFOPLIST_FILE: Digistban/Info.plist
         GENERATE_INFOPLIST_FILE: "NO"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: "NO"
-        ENABLE_USER_SCRIPT_SANDBOXING: "NO"
-        # Unsigned build: Sideloadly (or AltStore) signs it with your Apple ID when installing.
-        CODE_SIGNING_ALLOWED: "NO"
-        CODE_SIGNING_REQUIRED: "NO"
-        CODE_SIGN_IDENTITY: ""
+
+  # Live Activity of a transfer being sent (Lock Screen, Dynamic Island).
+  DigistbanWidgets:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "16.2"
+    sources:
+      - path: DigistbanWidgets
+        excludes:
+          - Info.plist
+      - path: Shared/UploadActivity.swift
+    settings:
+      base:
+        PRODUCT_NAME: DigistbanWidgets
+        PRODUCT_BUNDLE_IDENTIFIER: com.digistban.app.widgets
+        INFOPLIST_FILE: DigistbanWidgets/Info.plist
+        GENERATE_INFOPLIST_FILE: "NO"
+        SKIP_INSTALL: "YES"
+
+  # "Digistban" in the share sheet of Photos, Files and other apps.
+  DigistbanShare:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: DigistbanShare
+        excludes:
+          - Info.plist
+          - DigistbanShare.entitlements
+      - path: Shared/AppGroup.swift
+    settings:
+      base:
+        PRODUCT_NAME: DigistbanShare
+        PRODUCT_BUNDLE_IDENTIFIER: com.digistban.app.share
+        INFOPLIST_FILE: DigistbanShare/Info.plist
+        GENERATE_INFOPLIST_FILE: "NO"
+        SKIP_INSTALL: "YES"
+        # Opening the app from the share sheet goes through UIApplication (ShareViewController).
+        APPLICATION_EXTENSION_API_ONLY: "NO"

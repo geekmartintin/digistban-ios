@@ -2,3 +2,7 @@
 "NSMicrophoneUsageDescription" = "Digistban は通話とボイスメッセージにマイクを使用します。";
 "NSPhotoLibraryUsageDescription" = "写真を送信するときに Digistban が写真にアクセスします。";
 "NSPhotoLibraryAddUsageDescription" = "ダウンロードした画像やビデオを Digistban が写真に保存します。";
+"shortcut.send" = "ファイルを送信";
+"shortcut.transfers" = "転送一覧";
+"shortcut.messages" = "メッセージ";
+"shortcut.scan" = "QR コードをスキャン";

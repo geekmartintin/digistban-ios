@@ -27,6 +27,10 @@ final class WebViewController: UIViewController {
     private var webReady = false
     /// A call answered on the iPhone's call screen, for the page to connect.
     private var pendingAnswer: [String: Any]?
+    /// Files picked or shared before the page was listening.
+    private var pendingFiles: [[String: Any]] = []
+    /// Things to do once the page is ready (home screen quick actions).
+    private var pendingActions: [() -> Void] = []
     private var started = false
     private var statusBarStyle: UIStatusBarStyle = .lightContent
 
@@ -110,6 +114,7 @@ final class WebViewController: UIViewController {
 
         bridge.controller = self
         downloads.presenter = self
+        FilePicker.shared.onPicked = { [weak self] items in self?.deliverFiles(items, shared: false) }
     }
 
     override func viewDidLayoutSubviews() {
@@ -167,6 +172,14 @@ final class WebViewController: UIViewController {
             pendingAnswer = nil
             send(answer)
         }
+        pendingFiles.forEach { send($0) }
+        pendingFiles.removeAll()
+        Uploader.shared.broadcast()
+        let actions = pendingActions
+        pendingActions.removeAll()
+        if !actions.isEmpty {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { actions.forEach { $0() } }
+        }
         glassTabs?.resendInset()
         sendStatus()
         BackgroundCheck.saveSession()
@@ -192,7 +205,98 @@ final class WebViewController: UIViewController {
         if webReady { send(event) } else { pendingAnswer = event }
     }
 
+    // MARK: - Files, quick actions, QR codes
+
+    /// Files ready to send: the page adds them to "Envoyer" (shared from another app: it opens there).
+    func deliverFiles(_ items: [Staging.Item], shared: Bool) {
+        guard !items.isEmpty else { return }
+        if shared { navigate(to: "/") }
+        let event: [String: Any] = ["type": "files", "files": items.map { $0.json }, "shared": shared]
+        if webReady { send(event) } else { pendingFiles.append(event) }
+    }
+
+    /// Runs now if the page is ready, otherwise as soon as it is.
+    private func whenReady(_ action: @escaping () -> Void) {
+        if webReady && view.window != nil { action() } else { pendingActions.append(action) }
+    }
+
+    func pickFiles(source: String? = nil) {
+        whenReady { [weak self] in
+            guard let self = self else { return }
+            FilePicker.shared.present(from: self.topmost, source: source)
+        }
+    }
+
+    func presentScanner() {
+        whenReady { [weak self] in
+            guard let self = self else { return }
+            let scanner = QRScannerController()
+            scanner.modalPresentationStyle = .fullScreen
+            scanner.onCode = { [weak self] code in self?.handleScanned(code) }
+            self.topmost.present(scanner, animated: true)
+        }
+    }
+
+    /// A Digistban link opens in the app; anything else is shown first.
+    private func handleScanned(_ code: String) {
+        let text = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let url = URL(string: text), WebViewController.isAppURL(url) {
+            navigate(to: WebViewController.appPath(of: url))
+            return
+        }
+        let alert = UIAlertController(title: NSLocalizedString("scan.notDigistban", comment: ""), message: text, preferredStyle: .alert)
+        if let url = URL(string: text), ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
+            alert.addAction(UIAlertAction(title: NSLocalizedString("scan.open", comment: ""), style: .default) { [weak self] _ in self?.openOutside(url) })
+        } else {
+            alert.addAction(UIAlertAction(title: NSLocalizedString("scan.copy", comment: ""), style: .default) { _ in UIPasteboard.general.string = text })
+        }
+        alert.addAction(UIAlertAction(title: NSLocalizedString("common.cancel", comment: ""), style: .cancel))
+        topmost.present(alert, animated: true)
+    }
+
+    /// Home screen quick actions (Info.plist UIApplicationShortcutItems).
+    func perform(shortcut type: String) {
+        switch type {
+        case "com.digistban.app.send":
+            navigate(to: "/")
+            pickFiles()
+        case "com.digistban.app.transfers":
+            navigate(to: "/transfers")
+        case "com.digistban.app.messages":
+            navigate(to: "/messages")
+        case "com.digistban.app.scan":
+            presentScanner()
+        default:
+            break
+        }
+    }
+
+    /// Files shared through the share extension, waiting for the app.
+    func collectSharedFiles() {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["share-inbox"])
+        let items = Inbox.collect()
+        if !items.isEmpty { deliverFiles(items, shared: true) }
+    }
+
     func open(deepLink url: URL) {
+        if url.isFileURL {
+            // "Open in Digistban" from Files, Mail… (a copy in the app's Inbox folder).
+            DispatchQueue.global(qos: .userInitiated).async {
+                let item = Staging.adopt(url, move: true) ?? Staging.adopt(url)
+                DispatchQueue.main.async { [weak self] in
+                    if let item = item { self?.deliverFiles([item], shared: true) }
+                }
+            }
+            return
+        }
+        if url.scheme?.lowercased() == "digistban", url.host == "share" {
+            collectSharedFiles()
+            return
+        }
+        if url.scheme?.lowercased() == "digistban", url.host == "scan" {
+            presentScanner()
+            return
+        }
         if url.scheme?.lowercased() == "digistban" {
             // digistban://d/abcd -> /d/abcd, digistban://messages/42 -> /messages/42
             var path = "/" + ((url.host ?? "") + url.path).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
@@ -248,7 +352,7 @@ final class WebViewController: UIViewController {
 
     // MARK: - Leaving the app
 
-    private func openOutside(_ url: URL) {
+    func openOutside(_ url: URL) {
         guard let scheme = url.scheme?.lowercased() else { return }
         if scheme == "http" || scheme == "https" {
             let safari = SFSafariViewController(url: url)

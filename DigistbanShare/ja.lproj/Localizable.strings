@@ -1,0 +1,9 @@
+"share.title" = "Digistban で送信";
+"share.preparing" = "ファイルを準備しています…";
+"share.open" = "Digistban で開く";
+"share.cancel" = "キャンセル";
+"share.ready" = "%ld 件の準備完了 · %@";
+"share.nothing" = "送信できるファイルがありません。";
+"share.unavailable" = "このインストールでは直接共有を利用できません。Digistban で「ファイルを追加」をタップしてください。";
+"share.reminderTitle" = "ファイルの準備ができました";
+"share.reminderBody" = "タップして Digistban で送信します。";

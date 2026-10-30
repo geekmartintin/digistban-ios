@@ -4,3 +4,14 @@
 "download.failed" = "ダウンロードできませんでした";
 "common.cancel" = "キャンセル";
 "call.decline" = "拒否";
+"pick.photos" = "写真とビデオ";
+"pick.files" = "ファイル";
+"pick.scan" = "書類をスキャン";
+"pick.scanName" = "スキャン";
+"scan.hint" = "Digistban リンクの QR コードに向けてください";
+"scan.close" = "閉じる";
+"scan.denied" = "QR コードを読み取るにはカメラを許可してください。";
+"scan.settings" = "設定を開く";
+"scan.notDigistban" = "この QR コードは Digistban のリンクではありません";
+"scan.open" = "開く";
+"scan.copy" = "テキストをコピー";

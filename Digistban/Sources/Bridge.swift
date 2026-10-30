@@ -92,6 +92,14 @@ final class Bridge: NSObject, WKScriptMessageHandler {
             if let thread = thread, let at = body["at"] as? String { BackgroundCheck.markNotified(thread, at: at) }
         case "requestNotifications":
             Notifications.request { [weak self] _ in self?.controller?.sendStatus() }
+        case "pickFiles":
+            controller?.pickFiles(source: body["source"] as? String)
+        case "scanQR":
+            controller?.presentScanner()
+        case "upload":
+            if let job = body["job"] as? [String: Any] { Uploader.shared.start(job) }
+        case "uploadControl":
+            if let id = body["id"] as? String, let action = body["action"] as? String { Uploader.shared.control(id, action: action) }
         case "requestMedia":
             MediaPermissions.request { [weak self] in self?.controller?.sendStatus() }
         case "setReachable":

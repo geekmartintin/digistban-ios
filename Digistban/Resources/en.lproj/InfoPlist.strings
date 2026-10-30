@@ -2,3 +2,7 @@
 "NSMicrophoneUsageDescription" = "Digistban uses the microphone for calls and voice messages.";
 "NSPhotoLibraryUsageDescription" = "Digistban opens your photos when you choose to send some.";
 "NSPhotoLibraryAddUsageDescription" = "Digistban saves the images and videos you download to Photos.";
+"shortcut.send" = "Send files";
+"shortcut.transfers" = "My transfers";
+"shortcut.messages" = "Messages";
+"shortcut.scan" = "Scan a QR code";
