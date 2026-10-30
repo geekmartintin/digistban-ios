@@ -53,11 +53,21 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         WebViewController.shared.didReturnToForeground()
     }
 
+    func sceneWillResignActive(_ scene: UIScene) {
+        // Started while the app is still in front: iOS may refuse to start audio from the background.
+        // Not during a call: the page's audio session must stay as it is.
+        guard BackgroundCheck.signedIn, KeepAlive.enabled, !Bridge.inCall else { return }
+        KeepAlive.shared.start()
+    }
+
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        KeepAlive.shared.stop()
+    }
+
     func sceneDidEnterBackground(_ scene: UIScene) {
         BackgroundCheck.schedule()
         guard BackgroundCheck.signedIn else { return }
-        // Not during a call: the page's audio session must stay as it is.
-        if KeepAlive.enabled && !Bridge.inCall { KeepAlive.shared.start() }
+        Diagnostics.note(KeepAlive.enabled ? (Bridge.inCall ? "background-in-call" : "background") : "background-reachable-off")
         RealtimeListener.shared.start()
     }
 }

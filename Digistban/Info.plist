@@ -92,6 +92,7 @@
 	<array>
 		<string>audio</string>
 		<string>fetch</string>
+		<string>voip</string>
 	</array>
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>

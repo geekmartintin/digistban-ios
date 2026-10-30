@@ -52,8 +52,12 @@ final class NativeCalls: NSObject, CXProviderDelegate {
         update.supportsUngrouping = false
         update.supportsDTMF = false
         provider.reportNewIncomingCall(with: key, update: update) { [weak self] error in
-            guard error != nil else { return }
             DispatchQueue.main.async {
+                guard let error = error else {
+                    Diagnostics.note("callkit-shown")
+                    return
+                }
+                Diagnostics.note("callkit-\(Diagnostics.code(error))")
                 self?.calls[key] = nil
                 failed()
             }
@@ -79,6 +83,7 @@ final class NativeCalls: NSObject, CXProviderDelegate {
         }
         calls.removeAll()
         if let call = call {
+            Diagnostics.note("callkit-takeover")
             WebViewController.shared.answer(callId: call.id, conversation: call.conversation, video: call.video)
         }
     }
@@ -97,12 +102,14 @@ final class NativeCalls: NSObject, CXProviderDelegate {
         }
         answered = call
         action.fulfill()
+        Diagnostics.note("callkit-answer")
         // Already in front (answered from the banner while using the app): connect now.
         if UIApplication.shared.applicationState == .active { takeOver() }
     }
 
     func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
         if let call = calls.removeValue(forKey: action.callUUID) {
+            Diagnostics.note("callkit-decline")
             if answered?.id == call.id { answered = nil }
             RealtimeListener.shared.decline(call.id)
         }

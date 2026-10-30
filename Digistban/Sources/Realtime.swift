@@ -48,9 +48,14 @@ final class KeepAlive {
             let player = try AVAudioPlayer(contentsOf: url)
             player.numberOfLoops = -1
             player.volume = 0
-            player.play()
+            guard player.play() else {
+                Diagnostics.note("keepalive-play-refused")
+                return
+            }
             self.player = player
+            Diagnostics.note("keepalive-ok")
         } catch {
+            Diagnostics.note("keepalive-\(Diagnostics.code(error))")
             return
         }
         // A phone call or an alarm pauses it: start again afterwards.
@@ -86,6 +91,7 @@ final class RealtimeListener: NSObject {
     private var attempts = 0
     private var lastPacket = Date()
     private var watchdog: Timer?
+    private var ticks = 0
     /// Calls ringing now: id -> caller name and conversation.
     private var ringing: [String: (name: String, conversation: String)] = [:]
     private(set) var connected = false
@@ -95,10 +101,14 @@ final class RealtimeListener: NSObject {
         wanted = true
         attempts = 0
         connect()
+        ticks = 0
         watchdog = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            guard let self = self, self.wanted else { return }
+            self.ticks += 1
+            // Every 5 minutes: proof that the app is still running in the background.
+            if self.ticks % 10 == 0 { Diagnostics.note(self.connected ? "alive" : "alive-offline") }
             // The server pings every 25 s: silence for longer means a dead connection.
-            guard let self = self, self.wanted, Date().timeIntervalSince(self.lastPacket) > 70 else { return }
-            self.reconnect()
+            if Date().timeIntervalSince(self.lastPacket) > 70 { self.reconnect() }
         }
     }
 
@@ -147,7 +157,8 @@ final class RealtimeListener: NSObject {
         task.receive { [weak self] result in
             guard let self = self, task === self.task else { return }
             switch result {
-            case .failure:
+            case .failure(let error):
+                if self.wanted { Diagnostics.note("socket-\(Diagnostics.code(error))") }
                 self.reconnect()
             case .success(let message):
                 if case .string(let text) = message { self.handle(text) }
@@ -177,10 +188,12 @@ final class RealtimeListener: NSObject {
         } else if packet.hasPrefix("40") {
             connected = true
             attempts = 0
+            Diagnostics.note("socket-open")
             // Not looking at the screen: the server still sends web push to other devices.
             emit("presence", ["visible": false])
         } else if packet.hasPrefix("44") {
             // Session refused (signed out or expired): wait for the next sign-in.
+            Diagnostics.note("socket-refused")
             stop()
         } else if packet.hasPrefix("42") {
             event(String(packet.dropFirst(2)))
@@ -211,6 +224,7 @@ final class RealtimeListener: NSObject {
         var name = strings["someone"] ?? "Digistban"
         if let caller = (call["from"] as? [String: Any])?["name"] as? String, !caller.isEmpty { name = caller }
         ringing[id] = (name, conversation)
+        Diagnostics.note("call-incoming")
         let video = (call["kind"] as? String) == "video"
         NativeCalls.shared.reportIncoming(id: id, conversation: conversation, name: name, video: video) { [weak self] in
             // iOS refused the call screen (Focus, another call…): ring with a notification instead.
@@ -246,6 +260,7 @@ final class RealtimeListener: NSObject {
     private func ended(_ payload: [String: Any]) {
         guard let id = payload["callId"] as? String, let call = ringing[id] else { return }
         let reason = payload["reason"] as? String
+        Diagnostics.note("call-ended-\(reason ?? "unknown")")
         stopRinging(id, reason: reason == "missed" ? .unanswered : reason == "declined" ? .declinedElsewhere : .remoteEnded)
         guard reason == "missed" || reason == "cancelled" else { return }
         Notifications.show(
@@ -273,6 +288,7 @@ final class RealtimeListener: NSObject {
         default: body = (message["body"] as? String) ?? ""
         }
         Notifications.show(id: "conversation-\(conversation)", title: title, body: body, path: "/messages/\(conversation)", thread: conversation)
+        Diagnostics.note("message-notified")
         if let at = message["createdAt"] as? String { BackgroundCheck.markNotified(conversation, at: at) }
     }
 }
