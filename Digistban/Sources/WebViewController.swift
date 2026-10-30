@@ -187,7 +187,14 @@ final class WebViewController: UIViewController {
 
     func sendStatus() {
         Notifications.status { [weak self] value in
-            self?.send(["type": "status", "notifications": value, "backgroundRefresh": BackgroundCheck.availability()])
+            self?.send([
+                "type": "status",
+                "notifications": value,
+                "backgroundRefresh": BackgroundCheck.availability(),
+                "microphone": MediaPermissions.status(.audio),
+                "camera": MediaPermissions.status(.video),
+                "reachable": KeepAlive.enabled,
+            ])
         }
     }
 

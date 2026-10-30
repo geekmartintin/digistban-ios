@@ -6,6 +6,8 @@ import WebKit
 /// frontend/src/lib/native.ts for the other side.
 final class Bridge: NSObject, WKScriptMessageHandler {
     weak var controller: WebViewController?
+    /// A call is on in the page (it asked to keep the screen on).
+    static var inCall = false
 
     static var version: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0" }
     static var build: String { Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1" }
@@ -18,6 +20,9 @@ final class Bridge: NSObject, WKScriptMessageHandler {
             "build": build,
             "notifications": UserDefaults.standard.string(forKey: Notifications.statusKey) ?? "prompt",
             "backgroundRefresh": BackgroundCheck.availability(),
+            "microphone": MediaPermissions.status(.audio),
+            "camera": MediaPermissions.status(.video),
+            "reachable": KeepAlive.enabled,
         ]
         let json = (try? JSONSerialization.data(withJSONObject: info)).flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
         return "window.DigistbanNative = \(json);"
@@ -51,16 +56,21 @@ final class Bridge: NSObject, WKScriptMessageHandler {
             let background = (body["background"] as? String).flatMap { UIColor(hex: $0) }
             controller?.applyTheme(dark: (body["dark"] as? Bool) ?? true, background: background)
         case "keepAwake":
-            UIApplication.shared.isIdleTimerDisabled = (body["on"] as? Bool) ?? false
+            // Sent while a call is on: the screen stays on.
+            let on = (body["on"] as? Bool) ?? false
+            UIApplication.shared.isIdleTimerDisabled = on
+            Bridge.inCall = on
         case "session":
             BackgroundCheck.updateSession(
                 signedIn: (body["signedIn"] as? Bool) ?? false,
+                userId: body["userId"] as? String,
                 language: body["lang"] as? String,
                 strings: body["strings"] as? [String: String]
             )
         case "notify":
-            // Only when the app is not on screen: the page shows its own banners otherwise.
-            guard UIApplication.shared.applicationState != .active,
+            // Only when the app is not on screen (the page shows its own banners otherwise),
+            // and not twice when the app's own connection already notified it.
+            guard UIApplication.shared.applicationState != .active, !RealtimeListener.shared.connected,
                   let title = body["title"] as? String else { return }
             let thread = body["thread"] as? String
             Notifications.show(
@@ -73,6 +83,11 @@ final class Bridge: NSObject, WKScriptMessageHandler {
             if let thread = thread, let at = body["at"] as? String { BackgroundCheck.markNotified(thread, at: at) }
         case "requestNotifications":
             Notifications.request { [weak self] _ in self?.controller?.sendStatus() }
+        case "requestMedia":
+            MediaPermissions.request { [weak self] in self?.controller?.sendStatus() }
+        case "setReachable":
+            UserDefaults.standard.set((body["on"] as? Bool) ?? true, forKey: KeepAlive.settingKey)
+            controller?.sendStatus()
         case "openSettings":
             if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
         default:

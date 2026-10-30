@@ -3,3 +3,4 @@
 "offline.retry" = "再試行";
 "download.failed" = "ダウンロードできませんでした";
 "common.cancel" = "キャンセル";
+"call.decline" = "拒否";

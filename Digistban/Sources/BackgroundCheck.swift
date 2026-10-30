@@ -15,10 +15,16 @@ enum BackgroundCheck {
 
     private enum Keys {
         static let signedIn = "signedIn"
+        static let userId = "userId"
         static let language = "language"
         static let strings = "notificationStrings"
         static let notified = "notifiedConversations"
     }
+
+    static var signedIn: Bool { UserDefaults.standard.bool(forKey: Keys.signedIn) }
+    static var userId: String? { UserDefaults.standard.string(forKey: Keys.userId) }
+    /// Texts of notifications, in the account's language (sent by the web app).
+    static var strings: [String: String] { UserDefaults.standard.dictionary(forKey: Keys.strings) as? [String: String] ?? [:] }
 
     static func register() {
         BGTaskScheduler.shared.register(forTaskWithIdentifier: identifier, using: nil) { task in
@@ -47,9 +53,10 @@ enum BackgroundCheck {
     }
 
     /// From the web app: who is signed in, in which language, and the texts of notifications.
-    static func updateSession(signedIn: Bool, language: String?, strings: [String: String]?) {
+    static func updateSession(signedIn: Bool, userId: String?, language: String?, strings: [String: String]?) {
         let defaults = UserDefaults.standard
         defaults.set(signedIn, forKey: Keys.signedIn)
+        if let userId = userId { defaults.set(userId, forKey: Keys.userId) }
         if let language = language { defaults.set(language, forKey: Keys.language) }
         if let strings = strings { defaults.set(strings, forKey: Keys.strings) }
         if signedIn {
@@ -57,6 +64,8 @@ enum BackgroundCheck {
             schedule()
         } else {
             Keychain.delete()
+            RealtimeListener.shared.stop()
+            defaults.removeObject(forKey: Keys.userId)
             defaults.removeObject(forKey: Keys.notified)
             BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: identifier)
             Notifications.setBadge(0)
@@ -111,7 +120,7 @@ enum BackgroundCheck {
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
             if status == 401 {
                 // Signed out elsewhere or session expired: stop until the next sign-in.
-                DispatchQueue.main.async { BackgroundCheck.updateSession(signedIn: false, language: nil, strings: nil) }
+                DispatchQueue.main.async { BackgroundCheck.updateSession(signedIn: false, userId: nil, language: nil, strings: nil) }
                 done(false)
                 return
             }

@@ -8,6 +8,10 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Set before launch ends so a tap on a notification that opened the app is not lost.
         UNUserNotificationCenter.current().delegate = notificationRouter
+        let decline = UNNotificationAction(identifier: "decline", title: NSLocalizedString("call.decline", comment: ""), options: [.destructive])
+        UNUserNotificationCenter.current().setNotificationCategories([
+            UNNotificationCategory(identifier: "call", actions: [decline], intentIdentifiers: [], options: []),
+        ])
         BackgroundCheck.register()
         Downloads.cleanUp()
         return true
@@ -41,11 +45,18 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneWillEnterForeground(_ scene: UIScene) {
+        // The page takes over again (its own connection, sound and microphone).
+        RealtimeListener.shared.stop()
+        KeepAlive.shared.stop()
         WebViewController.shared.didReturnToForeground()
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {
         BackgroundCheck.schedule()
+        guard BackgroundCheck.signedIn else { return }
+        // Not during a call: the page's audio session must stay as it is.
+        if KeepAlive.enabled && !Bridge.inCall { KeepAlive.shared.start() }
+        RealtimeListener.shared.start()
     }
 }
 
@@ -57,9 +68,14 @@ final class NotificationRouter: NSObject, UNUserNotificationCenterDelegate {
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        let path = response.notification.request.content.userInfo["path"] as? String
+        let info = response.notification.request.content.userInfo
+        let path = info["path"] as? String
+        let callId = info["callId"] as? String
+        let declined = response.actionIdentifier == "decline"
         DispatchQueue.main.async {
-            if let path = path {
+            if declined, let callId = callId {
+                RealtimeListener.shared.decline(callId)
+            } else if let path = path {
                 WebViewController.shared.navigate(to: path)
             }
             completionHandler()

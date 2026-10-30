@@ -3,3 +3,4 @@
 "offline.retry" = "Réessayer";
 "download.failed" = "Téléchargement impossible";
 "common.cancel" = "Annuler";
+"call.decline" = "Refuser";
