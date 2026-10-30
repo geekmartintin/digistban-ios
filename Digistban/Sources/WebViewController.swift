@@ -23,6 +23,8 @@ final class WebViewController: UIViewController {
     private var pendingPath: String?
     /// The web app has started and listens to native events.
     private var webReady = false
+    /// A call answered on the iPhone's call screen, for the page to connect.
+    private var pendingAnswer: [String: Any]?
     private var started = false
     private var statusBarStyle: UIStatusBarStyle = .lightContent
 
@@ -146,6 +148,10 @@ final class WebViewController: UIViewController {
             pendingPath = nil
             send(["type": "navigate", "url": path])
         }
+        if let answer = pendingAnswer {
+            pendingAnswer = nil
+            send(answer)
+        }
         sendStatus()
         BackgroundCheck.saveSession()
     }
@@ -161,6 +167,13 @@ final class WebViewController: UIViewController {
             // Still loading: start again directly on that screen.
             start(path: path)
         }
+    }
+
+    /// Answered on the call screen: open the conversation and let the page connect the call.
+    func answer(callId: String, conversation: String, video: Bool) {
+        let event: [String: Any] = ["type": "answer", "callId": callId, "video": video]
+        navigate(to: "/messages/\(conversation)")
+        if webReady { send(event) } else { pendingAnswer = event }
     }
 
     func open(deepLink url: URL) {

@@ -1,4 +1,5 @@
 import AVFoundation
+import CallKit
 import UIKit
 import UserNotifications
 
@@ -103,6 +104,7 @@ final class RealtimeListener: NSObject {
 
     func stop() {
         wanted = false
+        ringing.removeAll()
         watchdog?.invalidate()
         watchdog = nil
         connected = false
@@ -209,10 +211,18 @@ final class RealtimeListener: NSObject {
         var name = strings["someone"] ?? "Digistban"
         if let caller = (call["from"] as? [String: Any])?["name"] as? String, !caller.isEmpty { name = caller }
         ringing[id] = (name, conversation)
+        let video = (call["kind"] as? String) == "video"
+        NativeCalls.shared.reportIncoming(id: id, conversation: conversation, name: name, video: video) { [weak self] in
+            // iOS refused the call screen (Focus, another call…): ring with a notification instead.
+            self?.notifyRinging(id: id, conversation: conversation, name: name, video: video)
+        }
+    }
 
+    private func notifyRinging(id: String, conversation: String, name: String, video: Bool) {
+        let strings = BackgroundCheck.strings
         let content = UNMutableNotificationContent()
         content.title = name
-        content.body = ((call["kind"] as? String) == "video" ? strings["incomingVideo"] : strings["incomingAudio"]) ?? "Appel entrant"
+        content.body = (video ? strings["incomingVideo"] : strings["incomingAudio"]) ?? "Appel entrant"
         content.sound = UNNotificationSound(named: UNNotificationSoundName("ring.wav"))
         content.categoryIdentifier = "call"
         content.threadIdentifier = conversation
@@ -226,16 +236,17 @@ final class RealtimeListener: NSObject {
         }
     }
 
-    private func stopRinging(_ id: String) {
+    private func stopRinging(_ id: String, reason: CXCallEndedReason = .answeredElsewhere) {
         ringing[id] = nil
+        NativeCalls.shared.end(id, reason: reason)
         UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["call-\(id)"])
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["call-\(id)"])
     }
 
     private func ended(_ payload: [String: Any]) {
         guard let id = payload["callId"] as? String, let call = ringing[id] else { return }
-        stopRinging(id)
         let reason = payload["reason"] as? String
+        stopRinging(id, reason: reason == "missed" ? .unanswered : reason == "declined" ? .declinedElsewhere : .remoteEnded)
         guard reason == "missed" || reason == "cancelled" else { return }
         Notifications.show(
             id: "missed-\(id)",
