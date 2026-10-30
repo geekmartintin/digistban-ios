@@ -222,7 +222,7 @@ final class Uploader: NSObject, URLSessionTaskDelegate {
         } else if jobs[i].files.contains(where: { $0.status == "failed" }) {
             finish(status: "failed", error: BackgroundCheck.strings["someFailed"] ?? "Certains fichiers n’ont pas pu être envoyés.")
         } else {
-            finalize()
+            finalizeTransfer()
         }
     }
 
@@ -358,7 +358,7 @@ final class Uploader: NSObject, URLSessionTaskDelegate {
         }
     }
 
-    private func finalize() {
+    private func finalizeTransfer() {
         guard let i = current(), let transferId = jobs[i].transferId else { return }
         jobs[i].status = "finalizing"
         emit(jobs[i], force: true)
@@ -366,7 +366,7 @@ final class Uploader: NSObject, URLSessionTaskDelegate {
         request("POST", "/transfers/\(transferId)/finalize") { [weak self] status, data in
             guard let self = self, let i = self.current() else { return }
             guard (200..<300).contains(status), let data = data else {
-                self.failure(status: status, json: Uploader.object(data)) { self.finalize() }
+                self.failure(status: status, json: Uploader.object(data)) { self.finalizeTransfer() }
                 return
             }
             self.jobs[i].result = data
