@@ -19,6 +19,8 @@ final class WebViewController: UIViewController {
     private let offline = OfflineView()
     private let bridge = Bridge()
     private let downloads = Downloads()
+    /// iOS 26: the system tab bar over the page.
+    private(set) var glassTabs: GlassTabs?
     /// Screen to open once the web app is listening (notification tap at launch, deep link).
     private var pendingPath: String?
     /// The web app has started and listens to native events.
@@ -88,6 +90,14 @@ final class WebViewController: UIViewController {
         root.addSubview(webView)
         self.webView = webView
 
+        if GlassTabs.available {
+            let tabs = GlassTabs()
+            tabs.install(in: self, above: webView)
+            tabs.onSelect = { [weak self] path in self?.send(["type": "tab", "path": path]) }
+            tabs.onInset = { [weak self] inset in self?.send(["type": "insets", "bottom": Double(inset)]) }
+            glassTabs = tabs
+        }
+
         offline.frame = root.bounds
         offline.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         offline.isHidden = true
@@ -100,6 +110,11 @@ final class WebViewController: UIViewController {
 
         bridge.controller = self
         downloads.presenter = self
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        glassTabs?.reportInset()
     }
 
     override func viewDidLoad() {
@@ -152,6 +167,7 @@ final class WebViewController: UIViewController {
             pendingAnswer = nil
             send(answer)
         }
+        glassTabs?.resendInset()
         sendStatus()
         BackgroundCheck.saveSession()
     }

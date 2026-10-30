@@ -23,6 +23,7 @@ final class Bridge: NSObject, WKScriptMessageHandler {
             "microphone": MediaPermissions.status(.audio),
             "camera": MediaPermissions.status(.video),
             "reachable": KeepAlive.enabled,
+            "tabBar": GlassTabs.available,
         ]
         let json = (try? JSONSerialization.data(withJSONObject: info)).flatMap { String(data: $0, encoding: .utf8) } ?? "{}"
         return "window.DigistbanNative = \(json);"
@@ -50,6 +51,14 @@ final class Bridge: NSObject, WKScriptMessageHandler {
             controller?.webAppReady()
         case "haptic":
             Haptics.play(body["style"] as? String)
+        case "tabs":
+            controller?.glassTabs?.apply(
+                visible: (body["visible"] as? Bool) ?? false,
+                active: body["active"] as? Int,
+                unread: (body["unread"] as? Int) ?? 0,
+                initials: (body["initials"] as? String) ?? "",
+                labels: (body["labels"] as? [String]) ?? []
+            )
         case "badge":
             Notifications.setBadge((body["count"] as? Int) ?? 0)
         case "theme":

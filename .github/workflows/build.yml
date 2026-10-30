@@ -19,6 +19,10 @@ jobs:
 
       - name: Tools
         run: |
+          # The newest Xcode 26: built with the iOS 26 SDK, the app gets the Liquid Glass design.
+          ls -d /Applications/Xcode*.app
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$XCODE" ]; then sudo xcode-select -s "$XCODE"; fi
           xcodebuild -version
           brew install xcodegen
 
