@@ -155,11 +155,15 @@ final class ShareViewController: UIViewController {
     @objc private func openApp() {
         guard ready, let url = URL(string: "digistban://share") else { return }
         // Share extensions have no official way to open their app: walk up to the
-        // application object. If it does not work, the notification below does it.
+        // application object and call openURL:options:completionHandler: on it
+        // dynamically. If iOS refuses, the notification below opens the app.
+        typealias OpenURL = @convention(c) (NSObject, Selector, NSURL, NSDictionary, AnyObject?) -> Void
+        let selector = NSSelectorFromString("openURL:options:completionHandler:")
         var responder: UIResponder? = self
         while let current = responder {
-            if let application = current as? UIApplication {
-                application.open(url, options: [:], completionHandler: nil)
+            if current !== self, current.responds(to: selector), let method = current.method(for: selector) {
+                let open = unsafeBitCast(method, to: OpenURL.self)
+                open(current, selector, url as NSURL, NSDictionary(), nil)
                 break
             }
             responder = current.next

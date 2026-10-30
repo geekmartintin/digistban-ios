@@ -75,5 +75,3 @@ targets:
         INFOPLIST_FILE: DigistbanShare/Info.plist
         GENERATE_INFOPLIST_FILE: "NO"
         SKIP_INSTALL: "YES"
-        # Opening the app from the share sheet goes through UIApplication (ShareViewController).
-        APPLICATION_EXTENSION_API_ONLY: "NO"
