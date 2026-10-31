@@ -309,6 +309,7 @@ final class WebViewController: UIViewController {
 
     func didReturnToForeground() {
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["app-closed"])
         if started && webView.url == nil {
             // The page was dropped while in the background (memory): load it again.
             start(path: nil)

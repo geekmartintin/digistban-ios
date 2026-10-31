@@ -125,6 +125,7 @@ final class Uploader: NSObject, URLSessionTaskDelegate {
             job.error = BackgroundCheck.strings["missingSource"] ?? "Fichier introuvable."
         }
         jobs.insert(job, at: 0)
+        Diagnostics.note("upload-start-\(files.count)")
         save(force: true)
         emit(job, force: true)
         if job.status == "preparing" { LiveActivities.start(job) }

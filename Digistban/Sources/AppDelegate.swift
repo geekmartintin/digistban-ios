@@ -21,6 +21,23 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
         UISceneConfiguration(name: "Default", sessionRole: connectingSceneSession.role)
     }
+
+    /// Closed from the app switcher while it was running in the background: from
+    /// now on nothing can ring until it is opened again (iOS only lets paid
+    /// developer accounts wake an app for calls). Say so, with a tap to reopen.
+    func applicationWillTerminate(_ application: UIApplication) {
+        guard BackgroundCheck.signedIn, KeepAlive.enabled else { return }
+        Diagnostics.note("terminated")
+        let content = UNMutableNotificationContent()
+        content.title = NSLocalizedString("closed.title", comment: "")
+        content.body = NSLocalizedString("closed.body", comment: "")
+        content.sound = .default
+        content.userInfo = ["path": "/"]
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: "app-closed", content: content, trigger: trigger)) { _ in }
+        // Give the request a moment before the process ends.
+        Thread.sleep(forTimeInterval: 0.3)
+    }
 }
 
 final class SceneDelegate: UIResponder, UIWindowSceneDelegate {

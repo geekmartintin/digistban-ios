@@ -15,3 +15,5 @@
 "scan.notDigistban" = "This QR code is not a Digistban link";
 "scan.open" = "Open";
 "scan.copy" = "Copy the text";
+"closed.title" = "Digistban is closed";
+"closed.body" = "You will not receive calls any more. Tap here to open the app again.";

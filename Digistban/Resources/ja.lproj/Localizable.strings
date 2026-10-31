@@ -15,3 +15,5 @@
 "scan.notDigistban" = "この QR コードは Digistban のリンクではありません";
 "scan.open" = "開く";
 "scan.copy" = "テキストをコピー";
+"closed.title" = "Digistban が終了しました";
+"closed.body" = "着信を受けられなくなりました。ここをタップしてアプリを再度開いてください。";

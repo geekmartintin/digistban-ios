@@ -193,7 +193,7 @@ final class RealtimeListener: NSObject {
             attempts = 0
             Diagnostics.note("socket-open")
             // Not looking at the screen: the server still sends web push to other devices.
-            emit("presence", ["visible": false])
+            emit("presence", ["visible": false, "app": true])
         } else if packet.hasPrefix("44") {
             // Session refused (signed out or expired): wait for the next sign-in.
             Diagnostics.note("socket-refused")

@@ -107,6 +107,11 @@ final class Bridge: NSObject, WKScriptMessageHandler {
         case "setReachable":
             UserDefaults.standard.set((body["on"] as? Bool) ?? true, forKey: KeepAlive.settingKey)
             controller?.sendStatus()
+        case "openInSafari":
+            // The real Safari (not an in-app view): it can add the web app to the Home Screen.
+            if let text = body["url"] as? String, let url = URL(string: text), WebViewController.isAppURL(url) {
+                UIApplication.shared.open(url)
+            }
         case "openSettings":
             if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
         default:

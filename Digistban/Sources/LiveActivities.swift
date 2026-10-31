@@ -10,8 +10,15 @@ enum LiveActivities {
     private static var lastUpdate: [String: Date] = [:]
 
     static func start(_ job: Uploader.Job) {
-        guard #available(iOS 16.2, *) else { return }
-        guard activities[job.id] == nil, ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        guard #available(iOS 16.2, *) else {
+            Diagnostics.note("activity-unsupported")
+            return
+        }
+        guard activities[job.id] == nil else { return }
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+            Diagnostics.note("activity-disabled")
+            return
+        }
         let attributes = UploadActivityAttributes(jobId: job.id, title: job.title, fileCount: job.files.count)
         do {
             let activity = try Activity<UploadActivityAttributes>.request(
@@ -20,6 +27,7 @@ enum LiveActivities {
                 pushType: nil
             )
             activities[job.id] = activity
+            Diagnostics.note("activity-started-\(activity.activityState == .active ? "active" : "inactive")")
         } catch {
             Diagnostics.note("activity-\(Diagnostics.code(error))")
         }
