@@ -409,6 +409,11 @@ final class WebViewController: UIViewController {
 
     func openOutside(_ url: URL) {
         guard let scheme = url.scheme?.lowercased() else { return }
+        // SumUp's pages (payment, bank check) go in the payment sheet, which closes itself once paid.
+        if scheme == "https", let host = url.host?.lowercased(), host == "sumup.com" || host.hasSuffix(".sumup.com") {
+            openPayment(url)
+            return
+        }
         if scheme == "http" || scheme == "https" {
             let safari = SFSafariViewController(url: url)
             safari.preferredControlTintColor = .label
