@@ -17,6 +17,7 @@ final class WebViewController: UIViewController {
     private var webView: WKWebView!
     private let splash = SplashView()
     private let offline = OfflineView()
+    private let downloadPill = DownloadPill()
     private let bridge = Bridge()
     private let downloads = Downloads()
     /// iOS 26: the system tab bar over the page.
@@ -107,6 +108,18 @@ final class WebViewController: UIViewController {
         offline.isHidden = true
         offline.onRetry = { [weak self] in self?.retry() }
         root.addSubview(offline)
+
+        downloadPill.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(downloadPill)
+        NSLayoutConstraint.activate([
+            downloadPill.topAnchor.constraint(equalTo: root.safeAreaLayoutGuide.topAnchor, constant: 6),
+            downloadPill.centerXAnchor.constraint(equalTo: root.centerXAnchor),
+            downloadPill.widthAnchor.constraint(lessThanOrEqualTo: root.widthAnchor, constant: -48),
+            downloadPill.widthAnchor.constraint(greaterThanOrEqualToConstant: 180),
+        ])
+        BackgroundDownloads.shared.onChange = { [weak self] in
+            self?.downloadPill.refresh(Array(BackgroundDownloads.shared.active.values))
+        }
 
         splash.frame = root.bounds
         splash.autoresizingMask = [.flexibleWidth, .flexibleHeight]
@@ -205,6 +218,18 @@ final class WebViewController: UIViewController {
         if webReady { send(event) } else { pendingAnswer = event }
     }
 
+    // MARK: - Downloads
+
+    func presentDownloaded(_ file: URL) {
+        whenReady { [weak self] in self?.downloads.present(file) }
+    }
+
+    func showDownloadError(_ message: String) {
+        let alert = UIAlertController(title: NSLocalizedString("download.failed", comment: ""), message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        topmost.present(alert, animated: true)
+    }
+
     // MARK: - Files, quick actions, QR codes
 
     /// Files ready to send: the page adds them to "Envoyer" (shared from another app: it opens there).
@@ -291,6 +316,11 @@ final class WebViewController: UIViewController {
         }
         if url.scheme?.lowercased() == "digistban", url.host == "share" {
             collectSharedFiles()
+            return
+        }
+        if url.scheme?.lowercased() == "digistban", url.host == "download" {
+            // The download activity was tapped: open the last file downloaded.
+            if let file = BackgroundDownloads.shared.lastFile { presentDownloaded(file) }
             return
         }
         if url.scheme?.lowercased() == "digistban", url.host == "scan" {
@@ -403,6 +433,13 @@ final class WebViewController: UIViewController {
 extension WebViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
         if navigationAction.shouldPerformDownload {
+            // A file of Digistban: the system downloads it (goes on outside the app,
+            // progress in the Dynamic Island). Caught before any request, so it counts once.
+            if let url = navigationAction.request.url, url.scheme?.lowercased() == "https", WebViewController.isAppURL(url) {
+                decisionHandler(.cancel)
+                BackgroundDownloads.shared.start(url: url)
+                return
+            }
             decisionHandler(.download)
             return
         }

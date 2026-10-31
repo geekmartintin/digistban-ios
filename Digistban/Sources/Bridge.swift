@@ -166,13 +166,15 @@ enum Notifications {
     }
 
     /// Shows a notification now. The same `id` replaces the previous one (one per conversation).
-    static func show(id: String, title: String, body: String, path: String?, thread: String?) {
+    static func show(id: String, title: String, body: String, path: String?, thread: String?, extra: [String: Any] = [:]) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = .default
         if let thread = thread { content.threadIdentifier = thread }
-        if let path = path { content.userInfo = ["path": path] }
+        var info = extra
+        if let path = path { info["path"] = path }
+        content.userInfo = info
         UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: id, content: content, trigger: nil)) { _ in }
     }
 }

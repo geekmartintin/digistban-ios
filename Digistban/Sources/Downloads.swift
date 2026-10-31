@@ -10,7 +10,7 @@ final class Downloads: NSObject, WKDownloadDelegate, QLPreviewControllerDataSour
     private var targets: [ObjectIdentifier: URL] = [:]
     private var previewed: [URL] = []
 
-    private static var folder: URL {
+    static var folder: URL {
         FileManager.default.temporaryDirectory.appendingPathComponent("Downloads", isDirectory: true)
     }
 
@@ -53,7 +53,7 @@ final class Downloads: NSObject, WKDownloadDelegate, QLPreviewControllerDataSour
         presenter.present(alert, animated: true)
     }
 
-    private func present(_ file: URL) {
+    func present(_ file: URL) {
         guard let presenter = presenter?.topmost else { return }
         if QLPreviewController.canPreview(file as NSURL) {
             previewed = [file]
@@ -78,8 +78,13 @@ final class Downloads: NSObject, WKDownloadDelegate, QLPreviewControllerDataSour
         previewed[index] as NSURL
     }
 
-    /// Files of earlier sessions are no longer needed (iOS also empties this folder by itself).
+    /// Downloads older than a day are no longer needed (iOS also empties this folder by itself).
     static func cleanUp() {
-        try? FileManager.default.removeItem(at: folder)
+        let limit = Date().addingTimeInterval(-86400)
+        let entries = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.creationDateKey])) ?? []
+        for entry in entries {
+            let created = (try? entry.resourceValues(forKeys: [.creationDateKey]))?.creationDate ?? .distantPast
+            if created < limit { try? FileManager.default.removeItem(at: entry) }
+        }
     }
 }

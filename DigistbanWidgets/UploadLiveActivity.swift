@@ -20,7 +20,7 @@ struct UploadLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    StatusSymbol(status: context.state.status)
+                    StatusSymbol(status: context.state.status, kind: context.attributes.kind)
                         .font(.title2)
                         .padding(.leading, 4)
                 }
@@ -30,7 +30,7 @@ struct UploadLiveActivity: Widget {
                         .padding(.trailing, 4)
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    Text(context.attributes.title)
+                    Text(context.state.title ?? context.attributes.title)
                         .font(.headline)
                         .lineLimit(1)
                 }
@@ -46,7 +46,7 @@ struct UploadLiveActivity: Widget {
                     .padding(.horizontal, 4)
                 }
             } compactLeading: {
-                StatusSymbol(status: context.state.status)
+                StatusSymbol(status: context.state.status, kind: context.attributes.kind)
             } compactTrailing: {
                 Text(percent(context.state))
                     .font(.caption2.weight(.semibold).monospacedDigit())
@@ -67,11 +67,11 @@ private struct LockScreenView: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
-            StatusSymbol(status: context.state.status)
+            StatusSymbol(status: context.state.status, kind: context.attributes.kind)
                 .font(.system(size: 30))
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(context.attributes.title)
+                    Text(context.state.title ?? context.attributes.title)
                         .font(.headline)
                         .lineLimit(1)
                     Spacer(minLength: 8)
@@ -93,6 +93,7 @@ private struct LockScreenView: View {
 
 private struct StatusSymbol: View {
     let status: String
+    let kind: String
 
     var body: some View {
         Image(systemName: symbol)
@@ -106,7 +107,7 @@ private struct StatusSymbol: View {
         case "failed": return "exclamationmark.circle.fill"
         case "paused": return "pause.circle.fill"
         case "cancelled": return "xmark.circle.fill"
-        default: return "arrow.up.circle.fill"
+        default: return kind == "download" ? "arrow.down.circle.fill" : "arrow.up.circle.fill"
         }
     }
 }

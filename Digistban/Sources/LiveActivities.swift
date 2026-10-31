@@ -19,7 +19,7 @@ enum LiveActivities {
             Diagnostics.note("activity-disabled")
             return
         }
-        let attributes = UploadActivityAttributes(jobId: job.id, title: job.title, fileCount: job.files.count)
+        let attributes = UploadActivityAttributes(jobId: job.id, title: job.title, fileCount: job.files.count, kind: "upload")
         do {
             let activity = try Activity<UploadActivityAttributes>.request(
                 attributes: attributes,
@@ -52,10 +52,81 @@ enum LiveActivities {
         Task { await activity.end(content, dismissalPolicy: policy) }
     }
 
+    // MARK: - Downloads
+
+    static func startDownload(id: String, title: String) {
+        guard #available(iOS 16.2, *), activities[id] == nil else { return }
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else {
+            Diagnostics.note("activity-disabled")
+            return
+        }
+        let attributes = UploadActivityAttributes(jobId: id, title: title, fileCount: 1, kind: "download")
+        do {
+            let activity = try Activity<UploadActivityAttributes>.request(
+                attributes: attributes,
+                content: ActivityContent(state: downloadState(name: nil, received: 0, expected: -1, error: nil, done: false), staleDate: nil),
+                pushType: nil
+            )
+            activities[id] = activity
+            Diagnostics.note("activity-download-\(activity.activityState == .active ? "active" : "inactive")")
+        } catch {
+            Diagnostics.note("activity-\(Diagnostics.code(error))")
+        }
+    }
+
+    static func updateDownload(id: String, name: String, received: Int64, expected: Int64) {
+        guard #available(iOS 16.2, *), let activity = activities[id] as? Activity<UploadActivityAttributes> else { return }
+        let now = Date()
+        if let last = lastUpdate[id], now.timeIntervalSince(last) < 1.5 { return }
+        lastUpdate[id] = now
+        let content = ActivityContent(state: downloadState(name: name, received: received, expected: expected, error: nil, done: false), staleDate: nil)
+        Task { await activity.update(content) }
+    }
+
+    static func endDownload(id: String, name: String, size: Int64, error: String?) {
+        guard #available(iOS 16.2, *), let activity = activities.removeValue(forKey: id) as? Activity<UploadActivityAttributes> else { return }
+        lastUpdate[id] = nil
+        let content = ActivityContent(state: downloadState(name: name, received: size, expected: size, error: error, done: true), staleDate: nil)
+        Task { await activity.end(content, dismissalPolicy: .after(Date().addingTimeInterval(15 * 60))) }
+    }
+
+    /// After a restart: download activities whose download is over.
+    static func endDownloads(except running: Set<String>) {
+        guard #available(iOS 16.2, *) else { return }
+        for activity in Activity<UploadActivityAttributes>.activities where activity.attributes.kind == "download" && !running.contains(activity.attributes.jobId) {
+            activities[activity.attributes.jobId] = nil
+            Task { await activity.end(nil, dismissalPolicy: .immediate) }
+        }
+    }
+
+    @available(iOS 16.2, *)
+    private static func downloadState(name: String?, received: Int64, expected: Int64, error: String?, done: Bool) -> UploadActivityAttributes.ContentState {
+        let strings = BackgroundCheck.strings
+        let bytes = ByteCountFormatter()
+        bytes.countStyle = .file
+        let status = error != nil ? "failed" : done ? "completed" : "uploading"
+        var detail = bytes.string(fromByteCount: received)
+        if expected > 0 && !done {
+            detail = (strings["sentOf"] ?? "{sent} / {total}")
+                .replacingOccurrences(of: "{sent}", with: bytes.string(fromByteCount: received))
+                .replacingOccurrences(of: "{total}", with: bytes.string(fromByteCount: expected))
+        }
+        if let error = error { detail = error }
+        let label = error != nil ? (strings["downloadFailed"] ?? "Échec") : done ? (strings["downloadDone"] ?? "Téléchargé") : (strings["downloading"] ?? "Téléchargement")
+        return UploadActivityAttributes.ContentState(
+            fraction: done ? 1 : expected > 0 ? min(1, Double(received) / Double(expected)) : 0,
+            status: status,
+            label: label,
+            detail: detail,
+            link: "digistban://download",
+            title: name
+        )
+    }
+
     /// After a restart: picks up the activities of jobs still running, ends the others.
     static func restore(jobs: [Uploader.Job]) {
         guard #available(iOS 16.2, *) else { return }
-        for activity in Activity<UploadActivityAttributes>.activities {
+        for activity in Activity<UploadActivityAttributes>.activities where activity.attributes.kind != "download" {
             let id = activity.attributes.jobId
             if let job = jobs.first(where: { $0.id == id }), ["preparing", "uploading", "finalizing", "paused"].contains(job.status) {
                 activities[id] = activity
@@ -86,7 +157,8 @@ enum LiveActivities {
             status: job.status,
             label: strings["status.\(job.status)"] ?? job.status,
             detail: detail,
-            link: link
+            link: link,
+            title: nil
         )
     }
 }

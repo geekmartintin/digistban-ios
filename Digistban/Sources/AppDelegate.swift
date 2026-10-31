@@ -15,7 +15,18 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         BackgroundCheck.register()
         Downloads.cleanUp()
         Uploader.shared.restore()
+        BackgroundDownloads.shared.reconnect()
         return true
+    }
+
+    /// iOS woke the app for downloads that finished while it was not running.
+    func application(_ application: UIApplication, handleEventsForBackgroundURLSession identifier: String, completionHandler: @escaping () -> Void) {
+        guard identifier == BackgroundDownloads.identifier else {
+            completionHandler()
+            return
+        }
+        BackgroundDownloads.shared.systemCompletion = completionHandler
+        _ = BackgroundDownloads.shared.session
     }
 
     func application(_ application: UIApplication, configurationForConnecting connectingSceneSession: UISceneSession, options: UIScene.ConnectionOptions) -> UISceneConfiguration {
@@ -83,7 +94,8 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Started while the app is still in front: iOS may refuse to start audio from the background.
         // Not during a call: the page's audio session must stay as it is. A transfer being
         // sent keeps the app running too, even if "stay reachable" is off.
-        guard BackgroundCheck.signedIn, KeepAlive.enabled || Uploader.shared.isBusy, !Bridge.inCall else { return }
+        let busy = Uploader.shared.isBusy || !BackgroundDownloads.shared.active.isEmpty
+        guard (BackgroundCheck.signedIn && KeepAlive.enabled) || busy, !Bridge.inCall else { return }
         KeepAlive.shared.start()
     }
 
@@ -111,10 +123,13 @@ final class NotificationRouter: NSObject, UNUserNotificationCenterDelegate {
         let info = response.notification.request.content.userInfo
         let path = info["path"] as? String
         let callId = info["callId"] as? String
+        let file = info["file"] as? String
         let declined = response.actionIdentifier == "decline"
         DispatchQueue.main.async {
             if declined, let callId = callId {
                 RealtimeListener.shared.decline(callId)
+            } else if let file = file, FileManager.default.fileExists(atPath: file) {
+                WebViewController.shared.presentDownloaded(URL(fileURLWithPath: file))
             } else if let path = path {
                 WebViewController.shared.navigate(to: path)
             }
