@@ -383,6 +383,30 @@ final class WebViewController: UIViewController {
 
     // MARK: - Leaving the app
 
+    /// SumUp's payment page (payment requests), in a sheet over the app. The page
+    /// closes it once the server confirms the payment.
+    private weak var paymentSheet: SFSafariViewController?
+
+    func openPayment(_ url: URL) {
+        guard url.scheme?.lowercased() == "https", let host = url.host?.lowercased(),
+              host == "sumup.com" || host.hasSuffix(".sumup.com") else { return }
+        paymentSheet?.dismiss(animated: false)
+        let safari = SFSafariViewController(url: url)
+        safari.preferredControlTintColor = .label
+        safari.dismissButtonStyle = .close
+        safari.modalPresentationStyle = .pageSheet
+        safari.delegate = self
+        paymentSheet = safari
+        topmost.present(safari, animated: true)
+        Diagnostics.note("pay-sheet-open")
+    }
+
+    func closePayment() {
+        guard let sheet = paymentSheet else { return }
+        paymentSheet = nil
+        sheet.dismiss(animated: true) { [weak self] in self?.send(["type": "externalClosed"]) }
+    }
+
     func openOutside(_ url: URL) {
         guard let scheme = url.scheme?.lowercased() else { return }
         if scheme == "http" || scheme == "https" {
@@ -521,6 +545,15 @@ extension WebViewController: WKNavigationDelegate {
 }
 
 // MARK: - Page requests
+
+extension WebViewController: SFSafariViewControllerDelegate {
+    /// Closed by hand (paid or not): the page asks the server where the payment stands.
+    func safariViewControllerDidFinish(_ controller: SFSafariViewController) {
+        guard controller === paymentSheet else { return }
+        paymentSheet = nil
+        send(["type": "externalClosed"])
+    }
+}
 
 extension WebViewController: WKUIDelegate {
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {

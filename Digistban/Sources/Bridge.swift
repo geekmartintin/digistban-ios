@@ -114,6 +114,10 @@ final class Bridge: NSObject, WKScriptMessageHandler {
             }
         case "openSettings":
             if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+        case "openExternal":
+            if let text = body["url"] as? String, let url = URL(string: text) { controller?.openPayment(url) }
+        case "closeExternal":
+            controller?.closePayment()
         default:
             break
         }

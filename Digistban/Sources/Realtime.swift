@@ -215,6 +215,7 @@ final class RealtimeListener: NSObject {
         case "call:ended": if let payload = payload { ended(payload) }
         case "call:taken": if let id = payload?["callId"] as? String { stopRinging(id) }
         case "chat:message": if let payload = payload { message(payload) }
+        case "payment:updated": if let payment = payload?["payment"] as? [String: Any] { paid(payment) }
         default: break
         }
     }
@@ -288,10 +289,34 @@ final class RealtimeListener: NSObject {
         switch kind {
         case "voice": body = strings["voice"] ?? "Message vocal"
         case "transfer": body = strings["transfer"] ?? "Fichiers"
+        case "payment":
+            let payment = message["payment"] as? [String: Any] ?? [:]
+            body = [strings["payment"] ?? "Demande de paiement", Self.amount(payment), message["body"] as? String]
+                .compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
         default: body = (message["body"] as? String) ?? ""
         }
         Notifications.show(id: "conversation-\(conversation)", title: title, body: body, path: "/messages/\(conversation)", thread: conversation)
         Diagnostics.note("message-notified")
         if let at = message["createdAt"] as? String { BackgroundCheck.markNotified(conversation, at: at) }
+    }
+
+    /// One of this person's payment requests has just been paid.
+    private func paid(_ payment: [String: Any]) {
+        guard (payment["status"] as? String) == "paid", (payment["requesterId"] as? String) == BackgroundCheck.userId,
+              let code = payment["code"] as? String else { return }
+        let body = [Self.amount(payment), payment["description"] as? String].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · ")
+        Notifications.show(id: "pay-\(code)", title: BackgroundCheck.strings["paymentReceived"] ?? "Paiement reçu", body: body, path: "/p/\(code)", thread: "payments")
+        Diagnostics.note("payment-notified")
+    }
+
+    /// 12,50 € in the interface language (amounts travel in cents).
+    static func amount(_ payment: [String: Any]) -> String? {
+        guard let cents = (payment["amount"] as? NSNumber)?.doubleValue else { return nil }
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .currency
+        formatter.currencyCode = (payment["currency"] as? String) ?? "EUR"
+        formatter.locale = Locale(identifier: ["en": "en_GB", "ja": "ja_JP"][BackgroundCheck.language ?? "fr"] ?? "fr_FR")
+        if cents.truncatingRemainder(dividingBy: 100) == 0 { formatter.maximumFractionDigits = 0 }
+        return formatter.string(from: NSNumber(value: cents / 100))
     }
 }
