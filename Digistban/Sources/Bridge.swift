@@ -92,6 +92,8 @@ final class Bridge: NSObject, WKScriptMessageHandler {
             if let thread = thread, let at = body["at"] as? String { BackgroundCheck.markNotified(thread, at: at) }
         case "requestNotifications":
             Notifications.request { [weak self] _ in self?.controller?.sendStatus() }
+        case "diag":
+            if let event = body["event"] as? String { Diagnostics.note("web-" + String(event.prefix(60))) }
         case "pickFiles":
             controller?.pickFiles(source: body["source"] as? String)
         case "scanQR":

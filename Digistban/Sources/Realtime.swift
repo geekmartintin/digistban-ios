@@ -73,8 +73,11 @@ final class KeepAlive {
         guard let player = player else { return }
         player.stop()
         self.player = nil
-        // Hand the audio back to the page (calls, voice notes) and to other apps.
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        // Hand the audio back to the page (calls, voice notes) and to other apps,
+        // and put back the default category: no "playback only" left behind.
+        let session = AVAudioSession.sharedInstance()
+        try? session.setActive(false, options: .notifyOthersOnDeactivation)
+        try? session.setCategory(.soloAmbient)
     }
 }
 

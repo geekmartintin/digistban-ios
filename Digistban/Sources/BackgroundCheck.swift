@@ -94,6 +94,14 @@ enum BackgroundCheck {
 
     private static func handle(_ task: BGAppRefreshTask) {
         schedule()
+        // iOS stopped the app (memory) and now wakes it for this check: make it
+        // reachable again for calls, if the user did not turn that off.
+        DispatchQueue.main.async {
+            guard BackgroundCheck.signedIn, UIApplication.shared.applicationState == .background, !RealtimeListener.shared.connected else { return }
+            Diagnostics.note("relaunched")
+            if KeepAlive.enabled { KeepAlive.shared.start() }
+            RealtimeListener.shared.start()
+        }
         let once = Once()
         let finish: (Bool) -> Void = { success in
             DispatchQueue.main.async {

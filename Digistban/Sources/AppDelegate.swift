@@ -56,9 +56,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func sceneWillEnterForeground(_ scene: UIScene) {
         // The page takes over again (its own connection, sound and microphone),
         // including a call just answered on the iPhone's call screen.
-        NativeCalls.shared.takeOver()
-        RealtimeListener.shared.stop()
         KeepAlive.shared.stop()
+        RealtimeListener.shared.stop()
+        NativeCalls.shared.takeOver()
         WebViewController.shared.didReturnToForeground()
     }
 

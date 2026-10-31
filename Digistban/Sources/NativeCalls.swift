@@ -1,3 +1,4 @@
+import AVFoundation
 import CallKit
 import UIKit
 
@@ -18,6 +19,10 @@ final class NativeCalls: NSObject, CXProviderDelegate {
     private var calls: [UUID: Call] = [:]
     /// Answered on the call screen, waiting for the page to connect it.
     private var answered: Call?
+    /// CallKit holds the app's audio (between answering and closing the native call).
+    private var audioActive = false
+    /// Hands the call to the page once CallKit has released the audio.
+    private var handOver: (() -> Void)?
 
     override init() {
         let configuration = CXProviderConfiguration()
@@ -82,9 +87,24 @@ final class NativeCalls: NSObject, CXProviderDelegate {
             provider.reportCall(with: key, endedAt: nil, reason: .answeredElsewhere)
         }
         calls.removeAll()
-        if let call = call {
-            Diagnostics.note("callkit-takeover")
+        guard let call = call else { return }
+        Diagnostics.note("callkit-takeover")
+        let hand = {
             WebViewController.shared.answer(callId: call.id, conversation: call.conversation, video: call.video)
+        }
+        // iOS gives the audio back a moment after the native call is closed. If the
+        // page started its microphone before that, iOS would cut it right after:
+        // a call with no sound. So the page answers once the audio is free.
+        guard audioActive else {
+            hand()
+            return
+        }
+        handOver = hand
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            guard let self = self, let pending = self.handOver else { return }
+            self.handOver = nil
+            Diagnostics.note("callkit-audio-timeout")
+            pending()
         }
     }
 
@@ -93,6 +113,22 @@ final class NativeCalls: NSObject, CXProviderDelegate {
     func providerDidReset(_ provider: CXProvider) {
         calls.removeAll()
         answered = nil
+        audioActive = false
+    }
+
+    func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
+        audioActive = true
+        Diagnostics.note("callkit-audio-on")
+    }
+
+    func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
+        audioActive = false
+        Diagnostics.note("callkit-audio-off")
+        if let pending = handOver {
+            handOver = nil
+            // A short margin: the audio route settles after deactivation.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { pending() }
+        }
     }
 
     func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
