@@ -29,7 +29,7 @@ struct UploadLiveActivity: Widget {
                     Text(percent(context.state))
                         .font(.title2.weight(.bold).monospacedDigit())
                         .contentTransition(.numericText())
-                        .foregroundStyle(tint(context.state.status))
+                        .foregroundStyle(statusColor(context.state.status))
                         .padding(.trailing, 6)
                         .padding(.top, 10)
                 }
@@ -48,7 +48,7 @@ struct UploadLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 6) {
                         ProgressView(value: context.state.fraction)
-                            .tint(tint(context.state.status))
+                            .tint(statusColor(context.state.status))
                         Text(context.state.detail)
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(.secondary)
@@ -63,12 +63,12 @@ struct UploadLiveActivity: Widget {
                 Text(percent(context.state))
                     .font(.caption.weight(.bold).monospacedDigit())
                     .contentTransition(.numericText())
-                    .foregroundStyle(tint(context.state.status))
+                    .foregroundStyle(statusColor(context.state.status))
             } minimal: {
                 ProgressRing(state: context.state, kind: context.attributes.kind, size: 22, line: 3)
             }
             .widgetURL(URL(string: context.state.link))
-            .keylineTint(tint(context.state.status))
+            .keylineTint(statusColor(context.state.status))
         }
     }
 }
@@ -90,7 +90,7 @@ private struct LockScreenView: View {
                         .contentTransition(.numericText())
                 }
                 ProgressView(value: context.state.fraction)
-                    .tint(tint(context.state.status))
+                    .tint(statusColor(context.state.status))
                 Text("\(context.state.label) · \(context.state.detail)")
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
@@ -115,11 +115,11 @@ private struct ProgressRing: View {
                 .stroke(Color.white.opacity(0.22), lineWidth: line)
             Circle()
                 .trim(from: 0, to: max(0.03, state.fraction))
-                .stroke(tint(state.status), style: StrokeStyle(lineWidth: line, lineCap: .round))
+                .stroke(statusColor(state.status), style: StrokeStyle(lineWidth: line, lineCap: .round))
                 .rotationEffect(.degrees(-90))
             Image(systemName: glyph)
                 .font(.system(size: size * 0.4, weight: .bold))
-                .foregroundStyle(tint(state.status))
+                .foregroundStyle(statusColor(state.status))
         }
         .frame(width: size, height: size)
     }
@@ -135,7 +135,7 @@ private struct ProgressRing: View {
     }
 }
 
-private func tint(_ status: String) -> Color {
+private func statusColor(_ status: String) -> Color {
     switch status {
     case "completed": return Color(red: 0.2, green: 0.84, blue: 0.4)
     case "failed", "cancelled": return Color(red: 1, green: 0.32, blue: 0.3)
