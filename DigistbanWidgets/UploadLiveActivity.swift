@@ -6,6 +6,11 @@ import WidgetKit
 struct DigistbanWidgetBundle: WidgetBundle {
     var body: some Widget {
         UploadLiveActivity()
+        if #available(iOS 18.0, *) {
+            SendControl()
+            ScanControl()
+            PaymentControl()
+        }
     }
 }
 

@@ -12,6 +12,24 @@ enum TransferControl {
         Diagnostics.note("activity-button-\(action)")
     }
 
+    /// A control of the Control Centre or the Action button: the app is in front, open the right thing.
+    @MainActor
+    static func open(target: String) {
+        Diagnostics.note("control-\(target)")
+        let app = WebViewController.shared
+        switch target {
+        case "send":
+            if let home = URL(string: "digistban://") { app.open(deepLink: home) }
+            app.pickFiles(source: nil)
+        case "scan":
+            app.presentScanner()
+        case "pay":
+            if let page = URL(string: "digistban://paiements?new=1") { app.open(deepLink: page) }
+        default:
+            break
+        }
+    }
+
     /// The app has just come to the front: give it a moment, then share.
     @MainActor
     static func share(link: String) {

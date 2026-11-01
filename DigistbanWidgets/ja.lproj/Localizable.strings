@@ -2,3 +2,9 @@
 "activity.resume" = "再開";
 "activity.cancel" = "キャンセル";
 "activity.share" = "共有";
+"control.send" = "ファイルを送信";
+"control.sendHint" = "送信する写真やファイルを選ぶ。";
+"control.scan" = "QR コードを読み取る";
+"control.scanHint" = "Digistban のリンクを開く。";
+"control.pay" = "支払いをリクエスト";
+"control.payHint" = "共有するリクエストを作成。";

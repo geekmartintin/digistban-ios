@@ -2,3 +2,9 @@
 "activity.resume" = "Reprendre";
 "activity.cancel" = "Annuler";
 "activity.share" = "Partager";
+"control.send" = "Envoyer des fichiers";
+"control.sendHint" = "Choisir des photos ou des fichiers à envoyer.";
+"control.scan" = "Scanner un QR code";
+"control.scanHint" = "Ouvrir un lien Digistban.";
+"control.pay" = "Demander un paiement";
+"control.payHint" = "Créer une demande à partager.";

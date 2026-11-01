@@ -620,6 +620,12 @@ extension WebViewController: SFSafariViewControllerDelegate {
 }
 
 extension WebViewController: WKUIDelegate {
+    /// The gyroscope for small 3D effects (the QR code that tilts): the app's own pages only.
+    @available(iOS 15.0, *)
+    func webView(_ webView: WKWebView, requestDeviceOrientationAndMotionPermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo, decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+        decisionHandler(WebViewController.isAppHost(origin.host) ? .grant : .deny)
+    }
+
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         openFromPage(navigationAction.request)
         return nil

@@ -216,6 +216,7 @@ final class RealtimeListener: NSObject {
         case "call:taken": if let id = payload?["callId"] as? String { stopRinging(id) }
         case "chat:message": if let payload = payload { message(payload) }
         case "payment:updated": if let payment = payload?["payment"] as? [String: Any] { paid(payment) }
+        case "moderation:flag": if let payload = payload { moderation(payload) }
         default: break
         }
     }
@@ -298,6 +299,17 @@ final class RealtimeListener: NSObject {
         Notifications.show(id: "conversation-\(conversation)", title: title, body: body, path: "/messages/\(conversation)", thread: conversation)
         Diagnostics.note("message-notified")
         if let at = message["createdAt"] as? String { BackgroundCheck.markNotified(conversation, at: at) }
+    }
+
+    /// Administrators: something to review (an insult, a new account, a new photo).
+    private func moderation(_ flag: [String: Any]) {
+        let reason = flag["reason"] as? String ?? ""
+        let user = flag["user"] as? [String: Any]
+        let who = (user?["displayName"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? (user?["email"] as? String) ?? ""
+        let title = [BackgroundCheck.strings["moderation.\(reason)"] ?? "Modération", who].filter { !$0.isEmpty }.joined(separator: " — ")
+        let body = (flag["excerpt"] as? String) ?? (user?["email"] as? String) ?? ""
+        Notifications.show(id: "moderation-\(flag["id"] as? String ?? UUID().uuidString)", title: title, body: body, path: "/admin?tab=moderation", thread: "moderation")
+        Diagnostics.note("moderation-notified")
     }
 
     /// One of this person's payment requests has just been paid.
