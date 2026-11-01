@@ -23,8 +23,16 @@ final class ShareViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor.black.withAlphaComponent(0.3)
+        trace(AppGroup.inbox == nil ? "share-open-nogroup" : "share-open")
         layout()
         collect()
+    }
+
+    /// Same diagnostics as the app (nginx access log), nothing personal.
+    private func trace(_ step: String) {
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
+        guard let url = URL(string: "https://digistban.com/help/api/health?app=\(step)&b=\(build)&s=ext") else { return }
+        URLSession.shared.dataTask(with: url).resume()
     }
 
     private func layout() {
@@ -145,6 +153,7 @@ final class ShareViewController: UIViewController {
                 self.detail.text = NSLocalizedString("share.nothing", comment: "")
                 return
             }
+            self.trace("share-ready-\(min(collected.count, 99))")
             let size = ByteCountFormatter.string(fromByteCount: collected.bytes, countStyle: .file)
             self.detail.text = String(format: NSLocalizedString("share.ready", comment: ""), collected.count, size)
             self.primary.isEnabled = true

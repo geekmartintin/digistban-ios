@@ -16,6 +16,9 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         Downloads.cleanUp()
         Uploader.shared.restore()
         BackgroundDownloads.shared.reconnect()
+        // Diagnostics: is the share extension installed, can it hand files over?
+        let plugins = (try? FileManager.default.contentsOfDirectory(atPath: Bundle.main.builtInPlugInsPath ?? "")) ?? []
+        Diagnostics.note("plugins-\(plugins.contains("DigistbanShare.appex") ? "share" : "noshare")-\(AppGroup.inbox == nil ? "nogroup" : "group")")
         return true
     }
 

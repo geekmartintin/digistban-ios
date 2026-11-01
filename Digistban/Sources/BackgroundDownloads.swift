@@ -85,6 +85,10 @@ final class BackgroundDownloads: NSObject, URLSessionDownloadDelegate {
         var progress = active[id] ?? Progress(name: downloadTask.taskDescription ?? "", received: 0, expected: -1)
         progress.received = totalBytesWritten
         progress.expected = totalBytesExpectedToWrite
+        if progress.expected <= 0, let hint = (downloadTask.response as? HTTPURLResponse)?.value(forHTTPHeaderField: "X-Digistban-Size"), let size = Int64(hint), size > 0 {
+            // "Download everything": a ZIP built on the fly has no length, the server says about how big.
+            progress.expected = size
+        }
         if let name = downloadTask.response?.suggestedFilename, !name.isEmpty { progress.name = name }
         active[id] = progress
         LiveActivities.updateDownload(id: BackgroundDownloads.activityId(id), name: progress.name, received: progress.received, expected: progress.expected)

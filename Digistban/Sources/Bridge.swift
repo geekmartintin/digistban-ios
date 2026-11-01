@@ -1,3 +1,4 @@
+import CoreHaptics
 import UIKit
 import UserNotifications
 import WebKit
@@ -124,18 +125,75 @@ final class Bridge: NSObject, WKScriptMessageHandler {
     }
 }
 
+/// Taps felt in the hand, at full strength: Core Haptics patterns (intensity 1,
+/// the sharpness gives each its character), the system generators otherwise.
 enum Haptics {
+    private static var engine: CHHapticEngine?
+    private static var supported = CHHapticEngine.capabilitiesForHardware().supportsHaptics
+
+    /// (start, intensity, sharpness, duration: 0 for a tap)
+    private static func events(_ style: String?) -> [(TimeInterval, Float, Float, TimeInterval)] {
+        switch style {
+        case "selection": return [(0, 0.9, 0.9, 0)]
+        case "soft": return [(0, 1, 0.15, 0)]
+        case "rigid": return [(0, 1, 1, 0)]
+        case "medium": return [(0, 1, 0.5, 0)]
+        case "heavy": return [(0, 1, 0.3, 0), (0, 1, 0.2, 0.08)]
+        case "success": return [(0, 1, 0.45, 0), (0.12, 1, 0.9, 0)]
+        case "warning": return [(0, 1, 0.6, 0), (0.15, 1, 0.6, 0)]
+        case "error": return [(0, 1, 0.9, 0), (0.08, 1, 0.9, 0), (0.16, 1, 0.9, 0)]
+        // A call ringing on screen: three long, deep pulses.
+        case "ring": return [(0, 1, 0.35, 0.24), (0.4, 1, 0.35, 0.24), (0.8, 1, 0.35, 0.24)]
+        default: return [(0, 1, 0.7, 0)]
+        }
+    }
+
+    private static func ready() -> CHHapticEngine? {
+        guard supported else { return nil }
+        if let engine = engine { return engine }
+        do {
+            let created = try CHHapticEngine()
+            created.playsHapticsOnly = true
+            created.isAutoShutdownEnabled = true
+            created.resetHandler = { [weak created] in try? created?.start() }
+            engine = created
+            return created
+        } catch {
+            supported = false
+            return nil
+        }
+    }
+
     static func play(_ style: String?) {
+        // Haptics only play while the app is on screen.
+        guard UIApplication.shared.applicationState != .background else { return }
+        guard let engine = ready() else { return fallback(style) }
+        let pattern = events(style).map { start, intensity, sharpness, duration -> CHHapticEvent in
+            let parameters = [
+                CHHapticEventParameter(parameterID: .hapticIntensity, value: intensity),
+                CHHapticEventParameter(parameterID: .hapticSharpness, value: sharpness),
+            ]
+            return duration > 0
+                ? CHHapticEvent(eventType: .hapticContinuous, parameters: parameters, relativeTime: start, duration: duration)
+                : CHHapticEvent(eventType: .hapticTransient, parameters: parameters, relativeTime: start)
+        }
+        do {
+            try engine.start()
+            try engine.makePlayer(with: CHHapticPattern(events: pattern, parameters: [])).start(atTime: CHHapticTimeImmediate)
+        } catch {
+            fallback(style)
+        }
+    }
+
+    private static func fallback(_ style: String?) {
         switch style {
         case "selection": UISelectionFeedbackGenerator().selectionChanged()
         case "success": UINotificationFeedbackGenerator().notificationOccurred(.success)
         case "warning": UINotificationFeedbackGenerator().notificationOccurred(.warning)
         case "error": UINotificationFeedbackGenerator().notificationOccurred(.error)
-        case "medium": UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        case "heavy": UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-        case "soft": UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-        case "rigid": UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
-        default: UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        case "soft": UIImpactFeedbackGenerator(style: .soft).impactOccurred(intensity: 1)
+        case "rigid", "light", nil: UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 1)
+        default: UIImpactFeedbackGenerator(style: .heavy).impactOccurred(intensity: 1)
         }
     }
 }

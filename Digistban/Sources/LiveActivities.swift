@@ -77,7 +77,7 @@ enum LiveActivities {
     static func updateDownload(id: String, name: String, received: Int64, expected: Int64) {
         guard #available(iOS 16.2, *), let activity = activities[id] as? Activity<UploadActivityAttributes> else { return }
         let now = Date()
-        if let last = lastUpdate[id], now.timeIntervalSince(last) < 1.5 { return }
+        if let last = lastUpdate[id], now.timeIntervalSince(last) < 1 { return }
         lastUpdate[id] = now
         let content = ActivityContent(state: downloadState(name: name, received: received, expected: expected, error: nil, done: false), staleDate: nil)
         Task { await activity.update(content) }
@@ -114,7 +114,8 @@ enum LiveActivities {
         if let error = error { detail = error }
         let label = error != nil ? (strings["downloadFailed"] ?? "Échec") : done ? (strings["downloadDone"] ?? "Téléchargé") : (strings["downloading"] ?? "Téléchargement")
         return UploadActivityAttributes.ContentState(
-            fraction: done ? 1 : expected > 0 ? min(1, Double(received) / Double(expected)) : 0,
+            // An estimated size may be a little off: never "100 %" before the end.
+            fraction: done ? 1 : expected > 0 ? min(0.99, Double(received) / Double(expected)) : 0,
             status: status,
             label: label,
             detail: detail,

@@ -9,55 +9,66 @@ struct DigistbanWidgetBundle: WidgetBundle {
     }
 }
 
-/// A transfer being sent: Lock Screen banner and Dynamic Island.
+/// A transfer being sent or a file being downloaded: Lock Screen banner and
+/// Dynamic Island, with a progress ring around the arrow.
 struct UploadLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: UploadActivityAttributes.self) { context in
             LockScreenView(context: context)
-                .activityBackgroundTint(Color.black.opacity(0.55))
+                .activityBackgroundTint(Color.black.opacity(0.6))
                 .activitySystemActionForegroundColor(.white)
                 .widgetURL(URL(string: context.state.link))
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    StatusSymbol(status: context.state.status, kind: context.attributes.kind)
-                        .font(.title2)
-                        .padding(.leading, 4)
+                    ProgressRing(state: context.state, kind: context.attributes.kind, size: 46, line: 5)
+                        .padding(.leading, 6)
+                        .padding(.top, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     Text(percent(context.state))
-                        .font(.title3.weight(.semibold).monospacedDigit())
-                        .padding(.trailing, 4)
+                        .font(.title2.weight(.bold).monospacedDigit())
+                        .contentTransition(.numericText())
+                        .foregroundStyle(tint(context.state.status))
+                        .padding(.trailing, 6)
+                        .padding(.top, 10)
                 }
                 DynamicIslandExpandedRegion(.center) {
-                    Text(context.state.title ?? context.attributes.title)
-                        .font(.headline)
-                        .lineLimit(1)
-                }
-                DynamicIslandExpandedRegion(.bottom) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ProgressView(value: context.state.fraction)
-                            .tint(.white)
-                        Text("\(context.state.label) · \(context.state.detail)")
+                    VStack(spacing: 2) {
+                        Text(context.state.title ?? context.attributes.title)
+                            .font(.headline)
+                            .lineLimit(1)
+                        Text(context.state.label)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
-                    .padding(.horizontal, 4)
+                    .padding(.top, 4)
+                }
+                DynamicIslandExpandedRegion(.bottom) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ProgressView(value: context.state.fraction)
+                            .tint(tint(context.state.status))
+                        Text(context.state.detail)
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 4)
                 }
             } compactLeading: {
-                StatusSymbol(status: context.state.status, kind: context.attributes.kind)
+                ProgressRing(state: context.state, kind: context.attributes.kind, size: 22, line: 3)
             } compactTrailing: {
                 Text(percent(context.state))
-                    .font(.caption2.weight(.semibold).monospacedDigit())
+                    .font(.caption.weight(.bold).monospacedDigit())
+                    .contentTransition(.numericText())
+                    .foregroundStyle(tint(context.state.status))
             } minimal: {
-                Gauge(value: context.state.fraction) {
-                    EmptyView()
-                }
-                .gaugeStyle(.accessoryCircularCapacity)
-                .tint(.white)
+                ProgressRing(state: context.state, kind: context.attributes.kind, size: 22, line: 3)
             }
             .widgetURL(URL(string: context.state.link))
+            .keylineTint(tint(context.state.status))
         }
     }
 }
@@ -67,8 +78,7 @@ private struct LockScreenView: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 14) {
-            StatusSymbol(status: context.state.status, kind: context.attributes.kind)
-                .font(.system(size: 30))
+            ProgressRing(state: context.state, kind: context.attributes.kind, size: 48, line: 5)
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(context.state.title ?? context.attributes.title)
@@ -77,11 +87,12 @@ private struct LockScreenView: View {
                     Spacer(minLength: 8)
                     Text(percent(context.state))
                         .font(.headline.monospacedDigit())
+                        .contentTransition(.numericText())
                 }
                 ProgressView(value: context.state.fraction)
-                    .tint(.white)
+                    .tint(tint(context.state.status))
                 Text("\(context.state.label) · \(context.state.detail)")
-                    .font(.caption)
+                    .font(.caption.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -91,24 +102,45 @@ private struct LockScreenView: View {
     }
 }
 
-private struct StatusSymbol: View {
-    let status: String
+/// The arrow (or the result) inside a ring that fills with the progress.
+private struct ProgressRing: View {
+    let state: UploadActivityAttributes.ContentState
     let kind: String
+    let size: CGFloat
+    let line: CGFloat
 
     var body: some View {
-        Image(systemName: symbol)
-            .symbolRenderingMode(.hierarchical)
-            .foregroundStyle(status == "failed" ? Color.red : Color.white)
+        ZStack {
+            Circle()
+                .stroke(Color.white.opacity(0.22), lineWidth: line)
+            Circle()
+                .trim(from: 0, to: max(0.03, state.fraction))
+                .stroke(tint(state.status), style: StrokeStyle(lineWidth: line, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            Image(systemName: glyph)
+                .font(.system(size: size * 0.4, weight: .bold))
+                .foregroundStyle(tint(state.status))
+        }
+        .frame(width: size, height: size)
     }
 
-    private var symbol: String {
-        switch status {
-        case "completed": return "checkmark.circle.fill"
-        case "failed": return "exclamationmark.circle.fill"
-        case "paused": return "pause.circle.fill"
-        case "cancelled": return "xmark.circle.fill"
-        default: return kind == "download" ? "arrow.down.circle.fill" : "arrow.up.circle.fill"
+    private var glyph: String {
+        switch state.status {
+        case "completed": return "checkmark"
+        case "failed": return "exclamationmark"
+        case "paused": return "pause.fill"
+        case "cancelled": return "xmark"
+        default: return kind == "download" ? "arrow.down" : "arrow.up"
         }
+    }
+}
+
+private func tint(_ status: String) -> Color {
+    switch status {
+    case "completed": return Color(red: 0.2, green: 0.84, blue: 0.4)
+    case "failed", "cancelled": return Color(red: 1, green: 0.32, blue: 0.3)
+    case "paused": return Color(red: 1, green: 0.72, blue: 0.2)
+    default: return .white
     }
 }
 

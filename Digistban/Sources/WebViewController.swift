@@ -84,7 +84,9 @@ final class WebViewController: UIViewController {
         // The page lays itself out under the status bar and home indicator (env(safe-area-inset-*)).
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.scrollView.bounces = false
-        webView.allowsBackForwardNavigationGestures = true
+        // The site turns screens back itself, like an app (it follows the finger and shows
+        // the previous screen underneath); the web view's history swipe would show web pages.
+        webView.allowsBackForwardNavigationGestures = false
         webView.allowsLinkPreview = false
         webView.navigationDelegate = self
         webView.uiDelegate = self
