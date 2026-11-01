@@ -17,3 +17,4 @@
 "scan.copy" = "テキストをコピー";
 "closed.title" = "Digistban が終了しました";
 "closed.body" = "着信を受けられなくなりました。ここをタップしてアプリを再度開いてください。";
+"nav.back" = "戻る";

@@ -18,6 +18,9 @@ final class WebViewController: UIViewController {
     private let splash = SplashView()
     private let offline = OfflineView()
     private let downloadPill = DownloadPill()
+    /// A file opened in the web view itself (a PDF, a photo…) has no page around it:
+    /// a Back button, and the swipe back, take the user to where they were.
+    private let fileBack = UIButton(type: .system)
     private let bridge = Bridge()
     private let downloads = Downloads()
     /// iOS 26: the system tab bar over the page.
@@ -73,6 +76,9 @@ final class WebViewController: UIViewController {
         content.addUserScript(WKUserScript(source: Bridge.startScript(), injectionTime: .atDocumentStart, forMainFrameOnly: true))
         content.addUserScript(WKUserScript(source: Bridge.viewportScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
         content.add(bridge, name: "digistban")
+        for script in TestHooks.userScripts {
+            content.addUserScript(WKUserScript(source: script, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        }
         configuration.userContentController = content
 
         let webView = WKWebView(frame: root.bounds, configuration: configuration)
@@ -111,6 +117,24 @@ final class WebViewController: UIViewController {
         offline.onRetry = { [weak self] in self?.retry() }
         root.addSubview(offline)
 
+        var backStyle = UIButton.Configuration.filled()
+        backStyle.title = NSLocalizedString("nav.back", comment: "")
+        backStyle.image = UIImage(systemName: "chevron.left", withConfiguration: UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold))
+        backStyle.imagePadding = 6
+        backStyle.cornerStyle = .capsule
+        backStyle.baseBackgroundColor = UIColor(white: 0.12, alpha: 0.86)
+        backStyle.baseForegroundColor = .white
+        backStyle.contentInsets = NSDirectionalEdgeInsets(top: 9, leading: 14, bottom: 9, trailing: 16)
+        fileBack.configuration = backStyle
+        fileBack.isHidden = true
+        fileBack.addAction(UIAction { [weak self] _ in self?.leaveFile() }, for: .touchUpInside)
+        fileBack.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(fileBack)
+        NSLayoutConstraint.activate([
+            fileBack.topAnchor.constraint(equalTo: root.safeAreaLayoutGuide.topAnchor, constant: 8),
+            fileBack.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 14),
+        ])
+
         downloadPill.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(downloadPill)
         NSLayoutConstraint.activate([
@@ -139,7 +163,7 @@ final class WebViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        start(path: pendingPath)
+        start(path: pendingPath ?? TestHooks.startPath)
         pendingPath = nil
         // Never leave the launch screen up for long: the web app has its own loading screen.
         DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in self?.hideSplash() }
@@ -224,6 +248,36 @@ final class WebViewController: UIViewController {
 
     func presentDownloaded(_ file: URL) {
         whenReady { [weak self] in self?.downloads.present(file) }
+    }
+
+    /// The share sheet of a downloaded file ("Share" on the Live Activity).
+    func shareFile(_ file: URL) {
+        whenReady { [weak self] in
+            guard let self = self else { return }
+            let sheet = UIActivityViewController(activityItems: [file], applicationActivities: nil)
+            sheet.popoverPresentationController?.sourceView = self.view
+            sheet.popoverPresentationController?.sourceRect = CGRect(x: self.view.bounds.midX, y: self.view.bounds.midY, width: 0, height: 0)
+            self.topmost.present(sheet, animated: true)
+        }
+    }
+
+    /// Shows or hides the Back button: only on a file shown by itself (an API address), not on the app's pages.
+    private func updateFileBack() {
+        let onFile = webView.url.map { WebViewController.isAppHost($0.host) && $0.path.hasPrefix("/help/api/") } ?? false
+        webView.allowsBackForwardNavigationGestures = onFile
+        guard fileBack.isHidden == onFile else { return }
+        if onFile {
+            fileBack.alpha = 0
+            fileBack.isHidden = false
+        }
+        UIView.animate(withDuration: 0.25, animations: { self.fileBack.alpha = onFile ? 1 : 0 }, completion: { _ in
+            if !onFile { self.fileBack.isHidden = true }
+        })
+    }
+
+    private func leaveFile() {
+        Haptics.play("light")
+        if webView.canGoBack { webView.goBack() } else { start(path: nil) }
     }
 
     func showDownloadError(_ message: String) {
@@ -321,8 +375,9 @@ final class WebViewController: UIViewController {
             return
         }
         if url.scheme?.lowercased() == "digistban", url.host == "download" {
-            // The download activity was tapped: open the last file downloaded.
-            if let file = BackgroundDownloads.shared.lastFile { presentDownloaded(file) }
+            // The download activity was tapped: open the last file downloaded (or share it).
+            guard let file = BackgroundDownloads.shared.lastFile else { return }
+            if url.path == "/share" { shareFile(file) } else { presentDownloaded(file) }
             return
         }
         if url.scheme?.lowercased() == "digistban", url.host == "scan" {
@@ -528,10 +583,12 @@ extension WebViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
         // A new page: it says when its app is listening (Bridge "ready").
         webReady = false
+        updateFileBack()
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         offline.isHidden = true
+        updateFileBack()
         // The page shows its own launch screen, identical to this one: hand over.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in self?.hideSplash() }
     }

@@ -1,0 +1,56 @@
+# Runs the app in the iOS Simulator: UI tests (one-time code field, Live
+# Activity buttons in the Dynamic Island and on the Lock Screen, frame timing)
+# with screenshots. Pushed to the "sim" branch by deploy/test-ios.sh in the main
+# repository; no release is made. The screenshots are the run's artifact.
+name: Simulator test
+
+on:
+  push:
+    branches: [sim]
+  workflow_dispatch:
+
+jobs:
+  simulator:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tools
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$XCODE" ]; then sudo xcode-select -s "$XCODE"; fi
+          xcodebuild -version
+          brew install xcodegen
+
+      - name: UI tests
+        run: |
+          xcodegen generate
+          DEVICE=$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          devices = json.load(sys.stdin)["devices"]
+          found = [(runtime, d) for runtime, items in devices.items() if "iOS" in runtime for d in items if d["name"].startswith("iPhone") and "Pro" in d["name"] and "Max" not in d["name"]]
+          found.sort(key=lambda item: item[0])
+          print(found[-1][1]["udid"])')
+          echo "Simulator: $DEVICE"
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+          set -o pipefail
+          xcodebuild test -project Digistban.xcodeproj -scheme DigistbanTests -configuration Debug \
+            -destination "platform=iOS Simulator,id=$DEVICE" -resultBundlePath results.xcresult \
+            CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO \
+            | grep -E "error:|Test Case|Executed|\*\* TEST|XCTAssert|failed" || true
+
+      - name: Results
+        if: always()
+        run: |
+          mkdir -p shots
+          xcrun xcresulttool export attachments --path results.xcresult --output-path shots || true
+          xcrun xcresulttool get test-results tests --path results.xcresult > shots/tests.json || true
+          ls -la shots
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: simulator-shots
+          path: shots

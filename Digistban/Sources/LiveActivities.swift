@@ -74,20 +74,30 @@ enum LiveActivities {
         }
     }
 
-    static func updateDownload(id: String, name: String, received: Int64, expected: Int64) {
+    static func updateDownload(id: String, name: String, received: Int64, expected: Int64, force: Bool = false) {
         guard #available(iOS 16.2, *), let activity = activities[id] as? Activity<UploadActivityAttributes> else { return }
         let now = Date()
-        if let last = lastUpdate[id], now.timeIntervalSince(last) < 1 { return }
+        if !force, let last = lastUpdate[id], now.timeIntervalSince(last) < 1 { return }
         lastUpdate[id] = now
         let content = ActivityContent(state: downloadState(name: name, received: received, expected: expected, error: nil, done: false), staleDate: nil)
         Task { await activity.update(content) }
     }
 
-    static func endDownload(id: String, name: String, size: Int64, error: String?) {
+    static func pauseDownload(id: String, name: String, received: Int64, expected: Int64) {
+        guard #available(iOS 16.2, *), let activity = activities[id] as? Activity<UploadActivityAttributes> else { return }
+        lastUpdate[id] = Date()
+        let content = ActivityContent(state: downloadState(name: name, received: received, expected: expected, error: nil, done: false, paused: true), staleDate: nil)
+        Task { await activity.update(content) }
+    }
+
+    static func endDownload(id: String, name: String, size: Int64, error: String?, cancelled: Bool = false) {
         guard #available(iOS 16.2, *), let activity = activities.removeValue(forKey: id) as? Activity<UploadActivityAttributes> else { return }
         lastUpdate[id] = nil
-        let content = ActivityContent(state: downloadState(name: name, received: size, expected: size, error: error, done: true), staleDate: nil)
-        Task { await activity.end(content, dismissalPolicy: .after(Date().addingTimeInterval(15 * 60))) }
+        var state = downloadState(name: name, received: size, expected: size, error: error, done: true)
+        if cancelled { state.status = "cancelled" }
+        let content = ActivityContent(state: state, staleDate: nil)
+        // The result stays a quarter of an hour on the Lock Screen (with "Share"); a cancelled one goes at once.
+        Task { await activity.end(content, dismissalPolicy: cancelled ? .immediate : .after(Date().addingTimeInterval(15 * 60))) }
     }
 
     /// After a restart: download activities whose download is over.
@@ -100,11 +110,11 @@ enum LiveActivities {
     }
 
     @available(iOS 16.2, *)
-    private static func downloadState(name: String?, received: Int64, expected: Int64, error: String?, done: Bool) -> UploadActivityAttributes.ContentState {
+    private static func downloadState(name: String?, received: Int64, expected: Int64, error: String?, done: Bool, paused: Bool = false) -> UploadActivityAttributes.ContentState {
         let strings = BackgroundCheck.strings
         let bytes = ByteCountFormatter()
         bytes.countStyle = .file
-        let status = error != nil ? "failed" : done ? "completed" : "uploading"
+        let status = error != nil ? "failed" : done ? "completed" : paused ? "paused" : "uploading"
         var detail = bytes.string(fromByteCount: received)
         if expected > 0 && !done {
             detail = (strings["sentOf"] ?? "{sent} / {total}")
@@ -112,7 +122,7 @@ enum LiveActivities {
                 .replacingOccurrences(of: "{total}", with: bytes.string(fromByteCount: expected))
         }
         if let error = error { detail = error }
-        let label = error != nil ? (strings["downloadFailed"] ?? "Échec") : done ? (strings["downloadDone"] ?? "Téléchargé") : (strings["downloading"] ?? "Téléchargement")
+        let label = error != nil ? (strings["downloadFailed"] ?? "Échec") : done ? (strings["downloadDone"] ?? "Téléchargé") : paused ? (strings["status.paused"] ?? "En pause") : (strings["downloading"] ?? "Téléchargement")
         return UploadActivityAttributes.ContentState(
             // An estimated size may be a little off: never "100 %" before the end.
             fraction: done ? 1 : expected > 0 ? min(0.99, Double(received) / Double(expected)) : 0,

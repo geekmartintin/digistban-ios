@@ -17,3 +17,4 @@
 "scan.copy" = "Copier le texte";
 "closed.title" = "Digistban est fermé";
 "closed.body" = "Vous ne recevrez plus les appels. Touchez ici pour rouvrir l’app.";
+"nav.back" = "Retour";
