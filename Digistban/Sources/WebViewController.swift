@@ -291,9 +291,20 @@ final class WebViewController: UIViewController {
     /// Files ready to send: the page adds them to "Envoyer" (shared from another app: it opens there).
     func deliverFiles(_ items: [Staging.Item], shared: Bool) {
         guard !items.isEmpty else { return }
-        if shared { navigate(to: "/") }
-        let event: [String: Any] = ["type": "files", "files": items.map { $0.json }, "shared": shared]
-        if webReady { send(event) } else { pendingFiles.append(event) }
+        // Photos and videos come with a small picture of themselves (the first 120).
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let files = items.enumerated().map { index, item -> [String: Any] in
+                var json = item.json
+                if index < 120, let thumb = Staging.thumbnail(of: item) { json["thumb"] = thumb }
+                return json
+            }
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                if shared { self.navigate(to: "/") }
+                let event: [String: Any] = ["type": "files", "files": files, "shared": shared]
+                if self.webReady { self.send(event) } else { self.pendingFiles.append(event) }
+            }
+        }
     }
 
     /// Runs now if the page is ready, otherwise as soon as it is.

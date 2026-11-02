@@ -1,3 +1,5 @@
+import AVFoundation
+import ImageIO
 import PhotosUI
 import UIKit
 import UniformTypeIdentifiers
@@ -50,6 +52,33 @@ enum Staging {
         let size = (attributes?[.size] as? NSNumber)?.int64Value ?? 0
         let type = UTType(filenameExtension: url.pathExtension)?.preferredMIMEType ?? "application/octet-stream"
         return Item(id: id, url: url, name: name, size: size, type: type)
+    }
+
+    /// A small JPEG of a photo or video (data: URL), for the page's file list.
+    /// Slow enough on big files to be made off the main thread.
+    static func thumbnail(of item: Item, side: CGFloat = 160) -> String? {
+        guard let kind = UTType(filenameExtension: item.url.pathExtension) else { return nil }
+        var picture: CGImage?
+        if kind.conforms(to: .image) {
+            guard let source = CGImageSourceCreateWithURL(item.url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary) else { return nil }
+            picture = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                kCGImageSourceCreateThumbnailFromImageAlways: true,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceThumbnailMaxPixelSize: side,
+            ] as CFDictionary)
+        } else if kind.conforms(to: .movie) {
+            let generator = AVAssetImageGenerator(asset: AVURLAsset(url: item.url))
+            generator.appliesPreferredTrackTransform = true
+            generator.maximumSize = CGSize(width: side, height: side)
+            let done = DispatchSemaphore(value: 0)
+            generator.generateCGImageAsynchronously(for: CMTime(seconds: 0.3, preferredTimescale: 600)) { image, _, _ in
+                picture = image
+                done.signal()
+            }
+            _ = done.wait(timeout: .now() + 3)
+        }
+        guard let picture, let data = UIImage(cgImage: picture).jpegData(compressionQuality: 0.7) else { return nil }
+        return "data:image/jpeg;base64," + data.base64EncodedString()
     }
 
     static func remove(_ id: String) {

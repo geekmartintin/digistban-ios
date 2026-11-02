@@ -18,6 +18,8 @@ enum TestHooks {
         var scripts: [String] = []
         if arguments.contains("-DigistbanTestFakeLogin") { scripts.append(fakeLogin) }
         if arguments.contains("-DigistbanTestFps") { scripts.append(framesProbe) }
+        // A script of the UI test itself (rendering checks in the real web view).
+        if let script = ProcessInfo.processInfo.environment["DIGISTBAN_TEST_SCRIPT"] { scripts.append(script) }
         return scripts
     }
 
@@ -45,8 +47,8 @@ enum TestHooks {
       }
       window.fetch = function (input, init) {
         var url = typeof input === 'string' ? input : input.url;
-        if (url.indexOf('/api/auth/request') >= 0) {
-          return reply(202, { challengeId: 'ui-test', email: 'test@example.com', codeExpiresAt: new Date(Date.now() + 600000).toISOString(), delivery: 'accepted', resendAfterSeconds: 60 });
+        if (url.indexOf('/api/auth/start') >= 0 || url.indexOf('/api/auth/request') >= 0) {
+          return reply(202, { status: 'code', challengeId: 'ui-test', email: 'test@example.com', codeExpiresAt: new Date(Date.now() + 600000).toISOString(), delivery: 'accepted', resendAfterSeconds: 60 });
         }
         if (url.indexOf('/api/auth/challenge/') >= 0) return reply(200, { problem: null });
         if (url.indexOf('/api/auth/verify') >= 0) {
